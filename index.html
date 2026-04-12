@@ -1895,7 +1895,7 @@
 </div>
 <div class="penalty-officer-entry hidden">
 <label for="penaltyOfficer">Người tham mưu</label>
-<input id="penaltyOfficer" placeholder="Nhập cán bộ..." type="text"/>
+<input id="penaltyOfficer" list="penaltyOfficerOptions" placeholder="Nhập cán bộ..." type="text"/><datalist id="penaltyOfficerOptions"></datalist>
 </div>
 </div>
 <div class="penalty-entry-footer">
@@ -2026,7 +2026,7 @@
 </div>
 <div>
 <label for="penaltyEditOfficer">Người tham mưu</label>
-<input id="penaltyEditOfficer" placeholder="Nhập cán bộ..." type="text"/>
+<input id="penaltyEditOfficer" list="penaltyEditOfficerOptions" placeholder="Nhập cán bộ..." type="text"/><datalist id="penaltyEditOfficerOptions"></datalist>
 </div>
 <div>
 <label for="penaltyEditBbNumber">Số BB VPHC</label>
@@ -3135,6 +3135,17 @@
   let penaltyRemoteAccessCache = null;
   let penaltyRemoteAccessInflight = null;
 
+  const PENALTY_DOI2_OFFICER_OPTIONS = [
+    'Phạm Thái Sơn',
+    'Phan Văn Thanh',
+    'Phạm Thanh Tùng',
+    'Hoàng Minh Quang',
+    'Nguyễn Xuân Quang',
+    'Nguyễn Văn Nguyên',
+    'Phạm Quyền Anh',
+    'Phí Văn Tuyển',
+    'Tạ Minh Phương'
+  ];
 
   function normalizePenaltyViolation(raw = {}) {
     return {
@@ -4854,16 +4865,38 @@
     return null;
   }
 
+  function buildPenaltyRecordForUpdate(currentItem = {}, updates = {}) {
+    const currentViolations = getPenaltyRecordViolations(currentItem).map(normalizePenaltyViolation);
+    const incomingViolations = Array.isArray(updates.violations) ? updates.violations : null;
+    let nextViolations = incomingViolations
+      ? incomingViolations.map((item, index) => normalizePenaltyViolation({
+          ...(currentViolations[index] || {}),
+          ...item,
+          id: item?.id || currentViolations[index]?.id
+        }))
+      : currentViolations.map(item => normalizePenaltyViolation(item));
+    const authority = String((updates.authority ?? currentItem.authority ?? collectPenaltyAuthorities(nextViolations) ?? 'Cán bộ')).trim() || 'Cán bộ';
+    nextViolations = nextViolations.map((item, index) => normalizePenaltyViolation({
+      ...(currentViolations[index] || {}),
+      ...item,
+      id: item?.id || currentViolations[index]?.id,
+      authority
+    }));
+    return normalizePenaltyRecord({
+      ...currentItem,
+      ...updates,
+      authority,
+      violations: nextViolations,
+      id: currentItem.id,
+      createdAt: currentItem.createdAt || new Date()
+    });
+  }
+
   function updatePenaltyRecordById(recordId, updates = {}) {
     const found = findPenaltyRecordById(recordId);
     if (!found) return false;
     const currentRows = Array.isArray(state.penaltyRecordsByUnit?.[found.unitName]) ? [...state.penaltyRecordsByUnit[found.unitName]] : [];
-    currentRows[found.index] = normalizePenaltyRecord({
-      ...found.item,
-      ...updates,
-      id: found.item.id,
-      createdAt: found.item.createdAt || new Date()
-    });
+    currentRows[found.index] = buildPenaltyRecordForUpdate(found.item, updates);
     state.penaltyRecordsByUnit = {
       ...(state.penaltyRecordsByUnit || {}),
       [found.unitName]: currentRows
@@ -4878,16 +4911,11 @@
     if (!found) return false;
     const currentRows = Array.isArray(state.penaltyRecordsByUnit?.[found.unitName]) ? [...state.penaltyRecordsByUnit[found.unitName]] : [];
     const currentItem = found.item || {};
-    const violations = getPenaltyRecordViolations(currentItem);
+    const violations = getPenaltyRecordViolations(currentItem).map(normalizePenaltyViolation);
     const index = Number(violationIndex);
     if (!Number.isInteger(index) || index < 0 || index >= violations.length) return false;
     violations[index] = normalizePenaltyViolation({ ...violations[index], ...updates, id: violations[index].id });
-    currentRows[found.index] = normalizePenaltyRecord({
-      ...currentItem,
-      violations,
-      id: currentItem.id,
-      createdAt: currentItem.createdAt || new Date()
-    });
+    currentRows[found.index] = buildPenaltyRecordForUpdate(currentItem, { violations });
     state.penaltyRecordsByUnit = {
       ...(state.penaltyRecordsByUnit || {}),
       [found.unitName]: currentRows
@@ -4903,13 +4931,7 @@
     const currentRows = Array.isArray(state.penaltyRecordsByUnit?.[found.unitName]) ? [...state.penaltyRecordsByUnit[found.unitName]] : [];
     const currentItem = found.item || {};
     const violations = getPenaltyRecordViolations(currentItem).map(item => normalizePenaltyViolation({ ...item, authority }));
-    currentRows[found.index] = normalizePenaltyRecord({
-      ...currentItem,
-      violations,
-      authority,
-      id: currentItem.id,
-      createdAt: currentItem.createdAt || new Date()
-    });
+    currentRows[found.index] = buildPenaltyRecordForUpdate(currentItem, { authority, violations });
     state.penaltyRecordsByUnit = {
       ...(state.penaltyRecordsByUnit || {}),
       [found.unitName]: currentRows
@@ -5042,7 +5064,7 @@
 
   function createPenaltyViolationEditorRow(item = {}, index = 0) {
     return `
-      <div class="penalty-violation-item" data-index="${index}">
+      <div class="penalty-violation-item" data-index="${index}" data-violation-id="${escapeHtml(item?.id || "")}">
         <div class="penalty-violation-item-head">
           <strong>Hành vi ${index + 1}</strong>
           <button class="secondary btn-remove-penalty-violation" type="button"${index === 0 ? ' disabled' : ''}>Xóa hành vi</button>
@@ -5091,6 +5113,7 @@
     return Array.from(list.querySelectorAll('.penalty-violation-item')).map(row => {
       const getValue = (field) => String(row.querySelector(`[data-field="${field}"]`)?.value || '').trim();
       return normalizePenaltyViolation({
+        id: String(row.dataset.violationId || '').trim(),
         point: getValue('point'),
         clause: getValue('clause'),
         article: getValue('article'),
@@ -5127,8 +5150,7 @@
     if (penaltyEditQdNumberEl) penaltyEditQdNumberEl.value = String(item?.qdNumber || '');
     const penaltyEditQdDateEl = $('penaltyEditQdDate');
     if (penaltyEditQdDateEl) penaltyEditQdDateEl.value = toInputDateValue(item?.qdDate || '');
-    const penaltyEditOfficerEl = $('penaltyEditOfficer');
-    if (penaltyEditOfficerEl) penaltyEditOfficerEl.value = String(item?.officer || '');
+    applyPenaltyOfficerSuggestions(unitName, { target: 'edit', value: String(item?.officer || '') });
     const penaltyEditAuthorityEl = $('penaltyEditAuthority');
     if (penaltyEditAuthorityEl) penaltyEditAuthorityEl.value = String(item?.authority || 'Cán bộ').trim() || 'Cán bộ';
     renderPenaltyViolationEditorRows(getPenaltyRecordViolations(item));
@@ -6109,6 +6131,27 @@
     return Array.isArray(PENALTY_UNIT_ADDRESS_OPTIONS[key]) ? [...PENALTY_UNIT_ADDRESS_OPTIONS[key]] : [];
   }
 
+  function getPenaltyOfficerOptions(unitName = '') {
+    return String(unitName || '').trim() === 'Đội 2' ? [...PENALTY_DOI2_OFFICER_OPTIONS] : [];
+  }
+
+  function renderPenaltyOfficerSuggestions(target = 'entry', unitName = '', value = '') {
+    const isEntry = target === 'entry';
+    const input = $(isEntry ? 'penaltyOfficer' : 'penaltyEditOfficer');
+    const datalist = $(isEntry ? 'penaltyOfficerOptions' : 'penaltyEditOfficerOptions');
+    if (!input || !datalist) return [];
+    const options = getPenaltyOfficerOptions(unitName);
+    datalist.innerHTML = options.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+    input.placeholder = options.length ? 'Chọn hoặc nhập Người tham mưu...' : 'Nhập cán bộ...';
+    input.value = String(value || '').trim();
+    return options;
+  }
+
+  function applyPenaltyOfficerSuggestions(unitName = '', options = {}) {
+    const { target = 'entry', value = '' } = options;
+    return renderPenaltyOfficerSuggestions(target, unitName, value);
+  }
+
   function refreshPenaltyAddressSelectStyle(selectOrId) {
     const select = typeof selectOrId === 'string' ? $(selectOrId) : selectOrId;
     if (!select) return;
@@ -6211,7 +6254,7 @@
     if ($('penaltyFacilityAddress')) $('penaltyFacilityAddress').value = '';
     applyPenaltyAddressSuggestions(state.currentPenaltyUnit, { target: 'entry' });
     if ($('penaltyViolationObject')) $('penaltyViolationObject').value = 'Tổ chức';
-    if ($('penaltyOfficer')) $('penaltyOfficer').value = '';
+    applyPenaltyOfficerSuggestions(state.currentPenaltyUnit, { target: 'entry', value: '' });
     if (!options.keepStatus) setPenaltyEntryStatus();
   }
 
@@ -6235,6 +6278,7 @@
       }
     }
     applyPenaltyAddressSuggestions(currentUnit, { target: 'entry' });
+    applyPenaltyOfficerSuggestions(currentUnit, { target: 'entry', value: $('penaltyOfficer')?.value || '' });
     resetPenaltyEntryForm();
   }
 
@@ -9982,7 +10026,7 @@ th{font-weight:700;background:#f1f1f1}
   ["viewerQuickContent", "viewerQuickDescription", "viewerQuickDueDate", "viewerQuickAttachment"].forEach(id => {
     $(id).addEventListener("keydown", (event) => handleEnterToSave(event, handleSaveViewerQuickTask));
   });
-  ["penaltyFacilityName", "penaltyFacilityAddress", "penaltyViolationObject"].forEach(id => {
+  ["penaltyFacilityName", "penaltyFacilityAddress", "penaltyViolationObject", "penaltyOfficer"].forEach(id => {
     if ($(id)) $(id).addEventListener("keydown", (event) => handleEnterToSave(event, handleSavePenaltyEntry));
   });
   [
