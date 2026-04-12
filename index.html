@@ -1895,7 +1895,7 @@
 </div>
 <div class="penalty-officer-entry hidden">
 <label for="penaltyOfficer">Người tham mưu</label>
-<input id="penaltyOfficer" list="penaltyOfficerOptions" placeholder="Nhập cán bộ..." type="text"/><datalist id="penaltyOfficerOptions"></datalist>
+<select id="penaltyOfficer" class="is-empty"><option value="">Chọn Người tham mưu...</option></select>
 </div>
 </div>
 <div class="penalty-entry-footer">
@@ -2026,7 +2026,7 @@
 </div>
 <div>
 <label for="penaltyEditOfficer">Người tham mưu</label>
-<input id="penaltyEditOfficer" list="penaltyEditOfficerOptions" placeholder="Nhập cán bộ..." type="text"/><datalist id="penaltyEditOfficerOptions"></datalist>
+<select id="penaltyEditOfficer" class="is-empty"><option value="">Chọn Người tham mưu...</option></select>
 </div>
 <div>
 <label for="penaltyEditBbNumber">Số BB VPHC</label>
@@ -3146,6 +3146,8 @@
     'Phí Văn Tuyển',
     'Tạ Minh Phương'
   ];
+
+  const PENALTY_CUSTOM_SELECT_VALUE = '__custom_penalty_officer__';
 
   function normalizePenaltyViolation(raw = {}) {
     return {
@@ -4941,6 +4943,22 @@
     return true;
   }
 
+  function tryShowDatePicker(input) {
+    if (!input || typeof input.showPicker !== 'function') return;
+    try {
+      input.showPicker();
+    } catch (_) {}
+  }
+
+  function configureCalendarOnlyInput(input) {
+    if (!input || input.dataset.calendarOnlyReady === '1') return;
+    input.dataset.calendarOnlyReady = '1';
+    input.setAttribute('inputmode', 'none');
+    input.setAttribute('autocomplete', 'off');
+    input.addEventListener('focus', () => tryShowDatePicker(input));
+    input.addEventListener('click', () => tryShowDatePicker(input));
+  }
+
   function closePenaltyInlineEditor(options = {}) {
     const editing = state.penaltyInlineEditing;
     if (!editing || !editing.cell || !editing.editor) {
@@ -4990,7 +5008,7 @@
     }
     targetCell.classList.add('is-editing');
     targetCell.innerHTML = '';
-    const useSelectEditor = field === 'violationObject' || field === 'authority' || field === 'address';
+    const useSelectEditor = field === 'violationObject' || field === 'authority' || field === 'address' || field === 'officer';
     const useDateEditor = field === 'bbDate' || field === 'qdDate';
     const editor = useSelectEditor ? document.createElement('select') : document.createElement('input');
     if (field === 'violationObject') {
@@ -5014,6 +5032,9 @@
     } else if (field === 'address') {
       editor.className = 'penalty-cell-editor-select';
       renderPenaltyAddressSelect(editor, found.unitName, { value: originalValue, blankLabel: 'Chọn địa chỉ...' });
+    } else if (field === 'officer') {
+      editor.className = 'penalty-cell-editor-select';
+      renderPenaltyOfficerSelect(editor, found.unitName, { value: originalValue, blankLabel: 'Chọn Người tham mưu...' });
     } else if (useDateEditor) {
       editor.type = 'date';
       editor.className = 'penalty-cell-editor';
@@ -5025,6 +5046,9 @@
       editor.value = originalValue;
     }
     targetCell.appendChild(editor);
+    if (field === 'officer') {
+      editor.addEventListener('change', handlePenaltyOfficerSelectChange);
+    }
     state.penaltyInlineEditing = {
       cell: targetCell,
       editor,
@@ -5053,12 +5077,13 @@
     editor.addEventListener('blur', () => {
       window.setTimeout(() => finish(true), 0);
     });
-    if (field === 'violationObject' || field === 'authority' || field === 'address' || field === 'bbDate' || field === 'qdDate') {
+    if (field === 'violationObject' || field === 'authority' || field === 'address' || field === 'officer' || field === 'bbDate' || field === 'qdDate') {
       editor.addEventListener('change', () => finish(true));
     }
     window.setTimeout(() => {
       editor.focus();
-      if (typeof editor.select === 'function' && !useSelectEditor) editor.select();
+      if (useDateEditor) tryShowDatePicker(editor);
+      if (typeof editor.select === 'function' && !useSelectEditor && !useDateEditor) editor.select();
     }, 0);
   }
 
@@ -5271,6 +5296,7 @@
       const editableClass = allowEditing ? ' penalty-editable-cell' : '';
       const facilityTitle = allowEditing ? 'Double click để mở hộp thoại sửa' : '';
       const cellTitle = allowEditing ? 'Double click để sửa ô này' : '';
+      const dateCellTitle = allowEditing ? 'Double click để chọn ngày' : '';
       const modalCellTitle = allowEditing ? 'Double click để mở hộp thoại sửa' : '';
       const authorityLabel = collectPenaltyAuthorities(visibleViolations) || String(item.authority || '').trim();
       const unitCell = showUnitColumn ? `<td class="penalty-unit-col penalty-shared-cell" rowspan="${rowCount}">${escapeHtml(item.sourceUnit || '')}</td>` : '';
@@ -5284,9 +5310,9 @@
           ${isFirst ? `<td class="penalty-text-left penalty-shared-cell${editableClass}" data-field="address" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.address || '')}</td>` : ''}
           ${isFirst ? `<td class="penalty-text-left penalty-shared-cell${editableClass}" data-field="violationObject" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.violationObject || '')}</td>` : ''}
           ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="bbNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.bbNumber || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="bbDate" title="${modalCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.bbDate || ''))}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="bbDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.bbDate || ''))}</td>` : ''}
           ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="qdNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.qdNumber || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="qdDate" title="${modalCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.qdDate || ''))}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="qdDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.qdDate || ''))}</td>` : ''}
           <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="point" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.point || '')}</td>
           <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="clause" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.clause || '')}</td>
           <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="article" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.article || '')}</td>
@@ -6132,19 +6158,97 @@
   }
 
   function getPenaltyOfficerOptions(unitName = '') {
-    return String(unitName || '').trim() === 'Đội 2' ? [...PENALTY_DOI2_OFFICER_OPTIONS] : [];
+    const key = String(unitName || '').trim();
+    const predefined = key === 'Đội 2' ? [...PENALTY_DOI2_OFFICER_OPTIONS] : [];
+    const unitOptions = [];
+    const globalOptions = [];
+    const seenUnit = new Set();
+    const seenGlobal = new Set();
+    const unitRows = Array.isArray(state.penaltyRecordsByUnit?.[key]) ? state.penaltyRecordsByUnit[key] : [];
+    unitRows.forEach(item => {
+      const officer = String(item?.officer || '').trim();
+      if (officer && !seenUnit.has(officer)) {
+        seenUnit.add(officer);
+        unitOptions.push(officer);
+      }
+    });
+    Object.values(state.penaltyRecordsByUnit || {}).forEach(list => {
+      if (!Array.isArray(list)) return;
+      list.forEach(item => {
+        const officer = String(item?.officer || '').trim();
+        if (officer && !seenGlobal.has(officer)) {
+          seenGlobal.add(officer);
+          globalOptions.push(officer);
+        }
+      });
+    });
+    const merged = [];
+    [...predefined, ...unitOptions, ...globalOptions].forEach(name => {
+      const officer = String(name || '').trim();
+      if (officer && !merged.includes(officer)) merged.push(officer);
+    });
+    return merged;
+  }
+
+  function promptPenaltyOfficerCustomValue(select) {
+    if (!select) return false;
+    const previousValue = String(select.dataset.previousValue || '').trim();
+    const entered = window.prompt('Nhập Người tham mưu:', previousValue);
+    if (entered === null) {
+      select.value = previousValue;
+      refreshPenaltyAddressSelectStyle(select);
+      return false;
+    }
+    const nextValue = String(entered || '').trim();
+    if (!nextValue) {
+      select.value = previousValue;
+      refreshPenaltyAddressSelectStyle(select);
+      return false;
+    }
+    renderPenaltyOfficerSelect(select, select.dataset.unitName || state.currentPenaltyUnit, { value: nextValue, blankLabel: 'Chọn Người tham mưu...' });
+    select.value = nextValue;
+    select.dataset.previousValue = nextValue;
+    refreshPenaltyAddressSelectStyle(select);
+    return true;
+  }
+
+  function handlePenaltyOfficerSelectChange(event) {
+    const select = event?.target;
+    if (!select) return;
+    if (String(select.value || '') === PENALTY_CUSTOM_SELECT_VALUE) {
+      promptPenaltyOfficerCustomValue(select);
+      return;
+    }
+    select.dataset.previousValue = String(select.value || '').trim();
+    refreshPenaltyAddressSelectStyle(select);
+  }
+
+  function renderPenaltyOfficerSelect(selectOrId, unitName = '', options = {}) {
+    const { value = '', includeBlank = true, blankLabel = 'Chọn Người tham mưu...', allowCustom = true } = options;
+    const select = typeof selectOrId === 'string' ? $(selectOrId) : selectOrId;
+    if (!select) return [];
+    const normalizedValue = String(value || '').trim();
+    const values = getPenaltyOfficerOptions(unitName);
+    if (normalizedValue && normalizedValue !== PENALTY_CUSTOM_SELECT_VALUE && !values.includes(normalizedValue)) {
+      values.unshift(normalizedValue);
+    }
+    const finalOptions = [];
+    if (includeBlank) finalOptions.push({ value: '', label: blankLabel });
+    values.forEach(optionValue => finalOptions.push({ value: optionValue, label: optionValue }));
+    if (allowCustom) finalOptions.push({ value: PENALTY_CUSTOM_SELECT_VALUE, label: 'Nhập khác...' });
+    select.innerHTML = finalOptions.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+    select.dataset.unitName = String(unitName || '').trim();
+    select.value = finalOptions.some(option => option.value === normalizedValue) ? normalizedValue : '';
+    select.dataset.previousValue = String(select.value || '').trim();
+    refreshPenaltyAddressSelectStyle(select);
+    return values;
   }
 
   function renderPenaltyOfficerSuggestions(target = 'entry', unitName = '', value = '') {
     const isEntry = target === 'entry';
-    const input = $(isEntry ? 'penaltyOfficer' : 'penaltyEditOfficer');
-    const datalist = $(isEntry ? 'penaltyOfficerOptions' : 'penaltyEditOfficerOptions');
-    if (!input || !datalist) return [];
-    const options = getPenaltyOfficerOptions(unitName);
-    datalist.innerHTML = options.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
-    input.placeholder = options.length ? 'Chọn hoặc nhập Người tham mưu...' : 'Nhập cán bộ...';
-    input.value = String(value || '').trim();
-    return options;
+    const select = $(isEntry ? 'penaltyOfficer' : 'penaltyEditOfficer');
+    if (!select) return [];
+    return renderPenaltyOfficerSelect(select, unitName, { value, blankLabel: 'Chọn Người tham mưu...' });
   }
 
   function applyPenaltyOfficerSuggestions(unitName = '', options = {}) {
@@ -10066,7 +10170,7 @@ th{font-weight:700;background:#f1f1f1}
     const field = String(cell.dataset.field || '').trim();
     const row = cell.closest('tr[data-id]');
     if (!row) return;
-    if (field === 'facilityName' || field === 'bbDate' || field === 'qdDate') {
+    if (field === 'facilityName') {
       openPenaltyEditModal(row.dataset.id);
       return;
     }
@@ -10106,6 +10210,9 @@ th{font-weight:700;background:#f1f1f1}
   }
   ['penaltyEditBbDate', 'penaltyEditQdDate'].forEach(id => {
     if ($(id)) configureCalendarOnlyInput($(id));
+  });
+  ['penaltyOfficer', 'penaltyEditOfficer'].forEach(id => {
+    if ($(id)) $(id).addEventListener('change', handlePenaltyOfficerSelectChange);
   });
   ["editTaskTitle", "editTaskAssignee", "editTaskAssignedWeek", "editTaskDueDate", "editTaskStatus", "editTaskDescription", "editTaskNote", "editTaskNoteFile"].forEach(id => {
     $(id).addEventListener("keydown", (event) => handleEnterToSave(event, handleSaveEditedTask, { onEscape: closeEditTaskModal }));
