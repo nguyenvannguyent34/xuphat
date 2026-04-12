@@ -3051,7 +3051,8 @@
 <script>
 (() => {
   // Dán link Web App Apps Script dạng /exec vào dòng dưới để cả đội cùng xem chung dữ liệu.
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRGsuqLYFX0uCnb1iLCskfDFmckJ-tzm3nkD0ogw-sjRm2fBpvgliK0TKgpOk3xT9q/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjFZcVqhOK7PtgfVbnAfQjelzWaCvyQtc-70o6V3ycwdlSs4bH9x18qwplou_Bmh4n/exec";
+  const ENABLE_LEGACY_REMOTE_MODULES = false;
   const VIEWER_PASSWORD = "101212019";
   const ADMIN_PASSWORD = "101212019";
   const LOCAL_STORAGE_KEY = "pc07_team_tasks_v1";
@@ -3126,6 +3127,14 @@
   ];
   const DESCRIPTION_IMAGE_PREFIX = "__TASKDESCIMG__";
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
+
+  const PENALTY_REMOTE_CACHE_TTL_MS = 10000;
+  const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
+  const penaltyRemoteRecordsCache = new Map();
+  const penaltyRemoteRecordsInflight = new Map();
+  let penaltyRemoteAccessCache = null;
+  let penaltyRemoteAccessInflight = null;
+
 
   function normalizePenaltyViolation(raw = {}) {
     return {
@@ -3259,6 +3268,8 @@
     penaltyInlineEditing: null,
     pendingPenaltyAccessUnit: "",
     penaltyAccessConfigs: {},
+    penaltyAccessConfigsLoadedAt: 0,
+    penaltyAccessConfigsSyncPromise: null,
     penaltyAccessConfigVisible: false,
     penaltyFilters: {
       facilityName: "",
@@ -3341,6 +3352,7 @@
   function savePenaltyAccessConfigs(configs) {
     const normalized = normalizePenaltyAccessConfigs(configs);
     state.penaltyAccessConfigs = normalized;
+    state.penaltyAccessConfigsLoadedAt = Date.now();
     try {
       localStorage.setItem(PENALTY_ACCESS_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
     } catch (err) {
@@ -3420,7 +3432,7 @@
     setPenaltyAccessPasswordVisibility(state.penaltyAccessConfigVisible);
   }
 
-  function openPenaltyAdminPanel() {
+  async function openPenaltyAdminPanel() {
     state.currentPenaltyUnit = 'Admin';
     closePenaltySelectorModal();
     enterWorkMode();
@@ -3429,6 +3441,15 @@
     renderPenaltyAccessConfigPanel();
     showOnly('penaltyAdminPanel');
     setStatus('info', '');
+    if (isPenaltyCloudReady()) {
+      setPenaltyAccessConfigStatus('info', 'Đang tải cấu hình mật khẩu từ hệ thống...');
+      const result = await ensurePenaltyAccessConfigsReady({ force: true, maxAgeMs: 0 });
+      renderPenaltyAccessConfigPanel();
+      if (result && result.ok) setPenaltyAccessConfigStatus('success', 'Đã tải cấu hình mật khẩu mới nhất từ hệ thống.');
+      else setPenaltyAccessConfigStatus('warning', (result && (result.error || result.message)) || 'Không tải được cấu hình mật khẩu từ hệ thống. Đang dùng dữ liệu cục bộ.');
+    } else {
+      setPenaltyAccessConfigStatus('warning', 'Chưa cấu hình Apps Script. Đang dùng cấu hình mật khẩu cục bộ.');
+    }
   }
 
   function openPenaltySelectorModal() {
@@ -3464,12 +3485,16 @@
     setPenaltyAccessPasswordVisibility(state.penaltyAccessConfigVisible);
   }
 
-  function handlePenaltyAccessLogin() {
+  async function handlePenaltyAccessLogin() {
     const unitName = String(state.pendingPenaltyAccessUnit || '').trim();
     const password = String(($('penaltyAccessPasswordInput') && $('penaltyAccessPasswordInput').value) || '').trim();
     if (!unitName) {
       closePenaltyAccessModal();
       return;
+    }
+    if (isPenaltyCloudReady()) {
+      if ($('penaltyAccessModalError')) $('penaltyAccessModalError').textContent = 'Đang kiểm tra cấu hình truy cập...';
+      await ensurePenaltyAccessConfigsReady({ force: true, maxAgeMs: 0 }).catch(() => {});
     }
     if (!hasPenaltyUnitAccess(unitName, password)) {
       if ($('penaltyAccessModalError')) $('penaltyAccessModalError').textContent = unitName === 'Admin'
@@ -3482,17 +3507,17 @@
     }
     closePenaltyAccessModal();
     if (unitName === 'Admin') {
-      openPenaltyAdminPanel();
+      void openPenaltyAdminPanel();
       return;
     }
     if (unitName === PENALTY_SELECTOR_ACCESS_LABEL) {
       openPenaltySelectorModal();
       return;
     }
-    openPenaltyUnit(unitName);
+    void openPenaltyUnit(unitName);
   }
 
-  function handleSavePenaltyAccessConfigs() {
+  async function handleSavePenaltyAccessConfigs() {
     const nextConfigs = {};
     let invalidUnit = '';
     getPenaltyProtectedUnits().forEach(unitName => {
@@ -3513,13 +3538,40 @@
     }
     savePenaltyAccessConfigs(nextConfigs);
     renderPenaltyAccessConfigPanel();
-    setPenaltyAccessConfigStatus('success', 'Đã lưu cấu hình mật khẩu truy cập các thẻ.');
+    if (!isPenaltyCloudReady()) {
+      setPenaltyAccessConfigStatus('warning', 'Đã lưu cục bộ. Hãy dán link Apps Script để dùng chung cho toàn đơn vị.');
+      return;
+    }
+    setPenaltyAccessConfigStatus('info', 'Đang lưu cấu hình mật khẩu lên hệ thống...');
+    const result = await savePenaltyAccessConfigsRemote(nextConfigs);
+    if (!result || !result.ok) {
+      setPenaltyAccessConfigStatus('warning', (result && (result.error || result.message)) || 'Đã lưu cục bộ nhưng chưa đồng bộ được cấu hình mật khẩu lên hệ thống.');
+      return;
+    }
+    const returned = normalizePenaltyAccessConfigs(result.items || result.configs || nextConfigs);
+    savePenaltyAccessConfigs(returned);
+    renderPenaltyAccessConfigPanel();
+    setPenaltyAccessConfigStatus('success', 'Đã lưu cấu hình mật khẩu truy cập các thẻ lên hệ thống.');
   }
 
-  function handleResetPenaltyAccessConfigs() {
-    savePenaltyAccessConfigs(getDefaultPenaltyAccessConfigs());
+  async function handleResetPenaltyAccessConfigs() {
+    const defaults = getDefaultPenaltyAccessConfigs();
+    savePenaltyAccessConfigs(defaults);
     renderPenaltyAccessConfigPanel();
-    setPenaltyAccessConfigStatus('success', 'Đã khôi phục mật khẩu mặc định cho các thẻ.');
+    if (!isPenaltyCloudReady()) {
+      setPenaltyAccessConfigStatus('warning', 'Đã khôi phục mật khẩu mặc định cục bộ.');
+      return;
+    }
+    setPenaltyAccessConfigStatus('info', 'Đang khôi phục mật khẩu mặc định trên hệ thống...');
+    const result = await savePenaltyAccessConfigsRemote(defaults);
+    if (!result || !result.ok) {
+      setPenaltyAccessConfigStatus('warning', (result && (result.error || result.message)) || 'Đã khôi phục cục bộ nhưng chưa đồng bộ được lên hệ thống.');
+      return;
+    }
+    const returned = normalizePenaltyAccessConfigs(result.items || result.configs || defaults);
+    savePenaltyAccessConfigs(returned);
+    renderPenaltyAccessConfigPanel();
+    setPenaltyAccessConfigStatus('success', 'Đã khôi phục mật khẩu mặc định cho các thẻ trên hệ thống.');
   }
 
 
@@ -4817,6 +4869,7 @@
       [found.unitName]: currentRows
     };
     saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
+    void persistPenaltyUnitRemote(found.unitName, { background: true });
     return true;
   }
 
@@ -4840,6 +4893,7 @@
       [found.unitName]: currentRows
     };
     saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
+    void persistPenaltyUnitRemote(found.unitName, { background: true });
     return true;
   }
 
@@ -4861,6 +4915,7 @@
       [found.unitName]: currentRows
     };
     saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
+    void persistPenaltyUnitRemote(found.unitName, { background: true });
     return true;
   }
 
@@ -5407,7 +5462,7 @@
     if ($('penaltyReportModal')) $('penaltyReportModal').classList.add('hidden');
   }
 
-  function openPenaltyUnit(unitName) {
+  async function openPenaltyUnit(unitName) {
     state.currentPenaltyUnit = String(unitName || '').trim();
     closePenaltySelectorModal();
     resetPenaltyFilters({ skipRender: true });
@@ -5417,7 +5472,18 @@
     updatePenaltyEntryVisibility(state.currentPenaltyUnit);
     renderPenaltyTable();
     showOnly('penaltyPanel');
-    setStatus('info', '');
+    if (!isPenaltyCloudReady()) {
+      setStatus('warning', 'Chưa cấu hình Apps Script. Dữ liệu xử phạt đang lưu cục bộ trên trình duyệt này.');
+      return;
+    }
+    setStatus('info', 'Đang tải dữ liệu xử phạt từ hệ thống...');
+    const result = await refreshPenaltyRecordsFromRemote({ unitName: state.currentPenaltyUnit });
+    renderPenaltyTable();
+    if (result && result.ok) {
+      setStatus('success', 'Đã tải dữ liệu xử phạt mới nhất từ hệ thống.');
+    } else {
+      setStatus('warning', (result && (result.error || result.message)) || 'Không tải được dữ liệu xử phạt từ hệ thống. Đang dùng dữ liệu cục bộ.');
+    }
   }
 
   function showOnly(sectionId) {
@@ -5716,6 +5782,322 @@
     }
   }
 
+  function isPenaltyCloudReady() {
+    return !!SCRIPT_URL && !SCRIPT_URL.includes("PASTE_YOUR");
+  }
+
+  function clonePenaltyRemoteData(value) {
+    if (value == null) return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  function getPenaltyRecordCacheKey(unitName = '') {
+    const normalizedUnit = String(unitName || '').trim();
+    return normalizedUnit || '__ALL__';
+  }
+
+  function getCachedPenaltyRecordResult(unitName = '') {
+    const key = getPenaltyRecordCacheKey(unitName);
+    const cached = penaltyRemoteRecordsCache.get(key);
+    if (!cached) return null;
+    if ((Date.now() - Number(cached.ts || 0)) > PENALTY_REMOTE_CACHE_TTL_MS) {
+      penaltyRemoteRecordsCache.delete(key);
+      return null;
+    }
+    return clonePenaltyRemoteData(cached.data);
+  }
+
+  function setCachedPenaltyRecordResult(unitName = '', data = null) {
+    const key = getPenaltyRecordCacheKey(unitName);
+    penaltyRemoteRecordsCache.set(key, { ts: Date.now(), data: clonePenaltyRemoteData(data) });
+  }
+
+  function invalidatePenaltyRecordRemoteCache(unitName = '') {
+    const key = getPenaltyRecordCacheKey(unitName);
+    penaltyRemoteRecordsCache.delete(key);
+    penaltyRemoteRecordsCache.delete('__ALL__');
+    penaltyRemoteRecordsInflight.delete(key);
+    penaltyRemoteRecordsInflight.delete('__ALL__');
+  }
+
+  function getCachedPenaltyAccessResult() {
+    if (!penaltyRemoteAccessCache) return null;
+    if ((Date.now() - Number(penaltyRemoteAccessCache.ts || 0)) > PENALTY_ACCESS_REMOTE_CACHE_TTL_MS) {
+      penaltyRemoteAccessCache = null;
+      return null;
+    }
+    return clonePenaltyRemoteData(penaltyRemoteAccessCache.data);
+  }
+
+  function setCachedPenaltyAccessResult(data = null) {
+    penaltyRemoteAccessCache = { ts: Date.now(), data: clonePenaltyRemoteData(data) };
+  }
+
+  function invalidatePenaltyAccessRemoteCache() {
+    penaltyRemoteAccessCache = null;
+    penaltyRemoteAccessInflight = null;
+  }
+
+  function buildPenaltyRemoteSavePayload(records = []) {
+    return (Array.isArray(records) ? records : [])
+      .map(item => normalizePenaltyRecord(item))
+      .filter(item => item.facilityName)
+      .map(item => ({
+        id: String(item.id || '').trim(),
+        facilityName: String(item.facilityName || '').trim(),
+        address: String(item.address || '').trim(),
+        violationObject: String(item.violationObject || '').trim(),
+        bbNumber: String(item.bbNumber || '').trim(),
+        bbDate: String(item.bbDate || '').trim(),
+        qdNumber: String(item.qdNumber || '').trim(),
+        qdDate: String(item.qdDate || '').trim(),
+        authority: String(item.authority || '').trim(),
+        officer: String(item.officer || '').trim(),
+        fineAmount: String(item.fineAmount || '').trim(),
+        createdAt: String(item.createdAt || '').trim(),
+        violations: getPenaltyRecordViolations(item).map(v => ({
+          id: String(v.id || '').trim(),
+          point: String(v.point || '').trim(),
+          clause: String(v.clause || '').trim(),
+          article: String(v.article || '').trim(),
+          decree: String(v.decree || '').trim(),
+          fineAmount: String(v.fineAmount || '').trim(),
+          authority: String(v.authority || item.authority || '').trim()
+        }))
+      }));
+  }
+
+  async function listPenaltyRecordsRemote(unitName = '', options = {}) {
+    const normalizedUnit = String(unitName || '').trim();
+    const force = !!options.force;
+    const cacheKey = getPenaltyRecordCacheKey(normalizedUnit);
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    if (!force) {
+      const cached = getCachedPenaltyRecordResult(normalizedUnit);
+      if (cached) return { ...cached, cached: true };
+      if (penaltyRemoteRecordsInflight.has(cacheKey)) {
+        return penaltyRemoteRecordsInflight.get(cacheKey);
+      }
+    }
+    const request = (async () => {
+      try {
+        const params = new URLSearchParams({ action: 'listPenaltyRecords' });
+        if (normalizedUnit) params.set('unitName', normalizedUnit);
+        const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
+        const resp = await fetchWithTimeout(url, {}, 12000, 'Tải dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
+        const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi dữ liệu xử phạt từ hệ thống.' }));
+        if (data && typeof data.ok !== 'undefined') {
+          if (data.ok) setCachedPenaltyRecordResult(normalizedUnit, data);
+          return data;
+        }
+        return { ok: false, error: 'Không nhận được phản hồi hợp lệ khi tải dữ liệu xử phạt.' };
+      } catch (err) {
+        console.error('Không tải được dữ liệu xử phạt từ Apps Script:', err);
+        return { ok: false, error: getFriendlyRequestError(err, 'Không tải được dữ liệu xử phạt từ hệ thống') };
+      } finally {
+        penaltyRemoteRecordsInflight.delete(cacheKey);
+      }
+    })();
+    penaltyRemoteRecordsInflight.set(cacheKey, request);
+    return request;
+  }
+
+  async function savePenaltyUnitRecordsRemote(unitName, records) {
+    const normalizedUnit = String(unitName || '').trim();
+    if (!normalizedUnit) return { ok: false, error: 'Thiếu tên đơn vị để đồng bộ dữ liệu xử phạt.' };
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    try {
+      const payloadRecords = buildPenaltyRemoteSavePayload(records);
+      const resp = await fetchWithTimeout(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'savePenaltyUnitRecords',
+          unitName: normalizedUnit,
+          records: payloadRecords
+        }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      }, 15000, 'Lưu dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
+      const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi khi lưu dữ liệu xử phạt.' }));
+      if (data && typeof data.ok !== 'undefined') {
+        if (data.ok) {
+          invalidatePenaltyRecordRemoteCache(normalizedUnit);
+          setCachedPenaltyRecordResult(normalizedUnit, {
+            ok: true,
+            unitName: normalizedUnit,
+            items: Array.isArray(data.items) ? data.items : payloadRecords,
+            itemsByUnit: { [normalizedUnit]: Array.isArray(data.items) ? data.items : payloadRecords }
+          });
+        }
+        return data;
+      }
+      return { ok: false, error: 'Không nhận được phản hồi hợp lệ khi lưu dữ liệu xử phạt.' };
+    } catch (err) {
+      console.error('Không lưu được dữ liệu xử phạt lên Apps Script:', err);
+      return { ok: false, error: getFriendlyRequestError(err, 'Không lưu được dữ liệu xử phạt lên hệ thống') };
+    }
+  }
+
+  async function listPenaltyAccessConfigsRemote(options = {}) {
+    const force = !!options.force;
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    if (!force) {
+      const cached = getCachedPenaltyAccessResult();
+      if (cached) return { ...cached, cached: true };
+      if (penaltyRemoteAccessInflight) return penaltyRemoteAccessInflight;
+    }
+    penaltyRemoteAccessInflight = (async () => {
+      try {
+        const params = new URLSearchParams({ action: 'listPenaltyAccessConfigs' });
+        const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
+        const resp = await fetchWithTimeout(url, {}, 8000, 'Tải cấu hình mật khẩu xử phạt quá lâu. Vui lòng thử lại.');
+        const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi cấu hình mật khẩu xử phạt từ hệ thống.' }));
+        if (data && typeof data.ok !== 'undefined') {
+          if (data.ok) setCachedPenaltyAccessResult(data);
+          return data;
+        }
+        return { ok: false, error: 'Không nhận được phản hồi hợp lệ về cấu hình mật khẩu xử phạt.' };
+      } catch (err) {
+        console.error('Không tải được cấu hình mật khẩu xử phạt từ Apps Script:', err);
+        return { ok: false, error: getFriendlyRequestError(err, 'Không tải được cấu hình mật khẩu xử phạt từ hệ thống') };
+      } finally {
+        penaltyRemoteAccessInflight = null;
+      }
+    })();
+    return penaltyRemoteAccessInflight;
+  }
+
+  async function savePenaltyAccessConfigsRemote(configs) {
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    try {
+      const resp = await fetchWithTimeout(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'savePenaltyAccessConfigs', configs }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      }, 10000, 'Lưu cấu hình mật khẩu xử phạt quá lâu. Vui lòng thử lại.');
+      const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi khi lưu cấu hình mật khẩu xử phạt.' }));
+      if (data && typeof data.ok !== 'undefined') {
+        if (data.ok) {
+          invalidatePenaltyAccessRemoteCache();
+          setCachedPenaltyAccessResult({ ok: true, items: data.items || configs });
+        }
+        return data;
+      }
+      return { ok: false, error: 'Không nhận được phản hồi hợp lệ khi lưu cấu hình mật khẩu xử phạt.' };
+    } catch (err) {
+      console.error('Không lưu được cấu hình mật khẩu xử phạt lên Apps Script:', err);
+      return { ok: false, error: getFriendlyRequestError(err, 'Không lưu được cấu hình mật khẩu xử phạt lên hệ thống') };
+    }
+  }
+
+  function getPenaltyAccessConfigsAgeMs() {
+    const loadedAt = Number(state.penaltyAccessConfigsLoadedAt || 0);
+    if (!loadedAt) return Number.POSITIVE_INFINITY;
+    return Date.now() - loadedAt;
+  }
+
+  function ensurePenaltyAccessConfigsReady(options = {}) {
+    const maxAgeMs = Number(options.maxAgeMs || 15000);
+    const force = !!options.force;
+    const background = !!options.background;
+    const hasConfigs = !!(state.penaltyAccessConfigs && Object.keys(state.penaltyAccessConfigs).length);
+    if (hasConfigs && !force && getPenaltyAccessConfigsAgeMs() <= maxAgeMs) {
+      return Promise.resolve({ ok: true, items: state.penaltyAccessConfigs, cached: true });
+    }
+    if (state.penaltyAccessConfigsSyncPromise && !force) {
+      if (background) return Promise.resolve({ ok: true, items: state.penaltyAccessConfigs, background: true });
+      return state.penaltyAccessConfigsSyncPromise;
+    }
+    const request = refreshPenaltyAccessConfigsFromRemote({ force });
+    state.penaltyAccessConfigsSyncPromise = request.finally(() => {
+      state.penaltyAccessConfigsSyncPromise = null;
+    });
+    if (background) {
+      state.penaltyAccessConfigsSyncPromise.catch(() => {});
+      return Promise.resolve({ ok: true, items: state.penaltyAccessConfigs, background: true });
+    }
+    return state.penaltyAccessConfigsSyncPromise;
+  }
+
+  async function refreshPenaltyAccessConfigsFromRemote(options = {}) {
+    const force = !!options.force;
+    const hasConfigs = !!(state.penaltyAccessConfigs && Object.keys(state.penaltyAccessConfigs).length);
+    const maxAgeMs = Number(options.maxAgeMs || 15000);
+    if (!force && hasConfigs && getPenaltyAccessConfigsAgeMs() <= maxAgeMs) {
+      return { ok: true, items: state.penaltyAccessConfigs, cached: true };
+    }
+    const cached = savePenaltyAccessConfigs(loadPenaltyAccessConfigs());
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, items: cached, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    const result = await listPenaltyAccessConfigsRemote({ force });
+    if (!result || !result.ok) {
+      return { ...(result || {}), items: cached };
+    }
+    const remoteItems = normalizePenaltyAccessConfigs(result.items || result.configs || {});
+    savePenaltyAccessConfigs(remoteItems);
+    return { ok: true, items: state.penaltyAccessConfigs, remote: true };
+  }
+
+  async function refreshPenaltyRecordsFromRemote(options = {}) {
+    const currentUnit = String(options.unitName || state.currentPenaltyUnit || '').trim();
+    const unitName = currentUnit && currentUnit !== 'Phòng PC07' && currentUnit !== 'Admin' ? currentUnit : '';
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, itemsByUnit: state.penaltyRecordsByUnit, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    const result = await listPenaltyRecordsRemote(unitName, { force: !!options.force });
+    if (!result || !result.ok) return result || { ok: false, error: 'Không tải được dữ liệu xử phạt.' };
+    const remoteMapRaw = result.itemsByUnit || result.recordsByUnit || {};
+    const next = { ...(state.penaltyRecordsByUnit || {}) };
+    if (unitName) {
+      const rows = Array.isArray(remoteMapRaw[unitName]) ? remoteMapRaw[unitName] : (Array.isArray(result.items) ? result.items : []);
+      next[unitName] = rows.map(normalizePenaltyRecord).filter(item => item.facilityName);
+    } else {
+      const editableUnits = getEditablePenaltyUnits();
+      editableUnits.forEach(name => {
+        const rows = Array.isArray(remoteMapRaw[name]) ? remoteMapRaw[name] : [];
+        next[name] = rows.map(normalizePenaltyRecord).filter(item => item.facilityName);
+      });
+    }
+    state.penaltyRecordsByUnit = next;
+    saveLocalPenaltyRecords(next);
+    return { ok: true, itemsByUnit: next, remote: true };
+  }
+
+  async function persistPenaltyUnitRemote(unitName, options = {}) {
+    const normalizedUnit = String(unitName || '').trim();
+    if (!normalizedUnit || normalizedUnit === 'Phòng PC07' || normalizedUnit === 'Admin') {
+      return { ok: false, skipped: true };
+    }
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    const rows = Array.isArray(state.penaltyRecordsByUnit?.[normalizedUnit]) ? state.penaltyRecordsByUnit[normalizedUnit] : [];
+    const result = await savePenaltyUnitRecordsRemote(normalizedUnit, rows);
+    if (result && result.ok) {
+      const returned = Array.isArray(result.items) ? result.items : (Array.isArray(result.records) ? result.records : rows);
+      state.penaltyRecordsByUnit = {
+        ...(state.penaltyRecordsByUnit || {}),
+        [normalizedUnit]: returned.map(normalizePenaltyRecord).filter(item => item.facilityName)
+      };
+      saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
+      if (options.render) renderPenaltyTable();
+      return { ok: true, remote: true };
+    }
+    return result || { ok: false, error: 'Không đồng bộ được dữ liệu xử phạt lên hệ thống.' };
+  }
+
   function getEditablePenaltyUnits() {
     return Array.from(document.querySelectorAll('.penalty-stat-btn'))
       .map(btn => String(btn.dataset.unit || btn.textContent || '').trim())
@@ -5894,6 +6276,12 @@
     resetPenaltyEntryForm({ keepStatus: true });
     setPenaltyEntryStatus();
     $('penaltyFacilityName')?.focus();
+    void persistPenaltyUnitRemote(unitName, { background: true }).then((result) => {
+      if (!result || result.ok || result.localOnly || result.skipped) return;
+      setPenaltyEntryStatus('warning', (result.error || result.message || 'Đã lưu cục bộ nhưng chưa đồng bộ được lên hệ thống.'));
+    }).catch(() => {
+      setPenaltyEntryStatus('warning', 'Đã lưu cục bộ nhưng chưa đồng bộ được lên hệ thống.');
+    });
   }
 
   function sortTasks(tasks) {
@@ -6408,7 +6796,7 @@
 
 
   function isFacilityCloudReady() {
-    return !!SCRIPT_URL && !SCRIPT_URL.includes("PASTE_YOUR");
+    return ENABLE_LEGACY_REMOTE_MODULES && !!SCRIPT_URL && !SCRIPT_URL.includes("PASTE_YOUR");
   }
 
   async function listFacilitiesRemote(managerName = getCurrentFacilityManager()) {
@@ -9713,10 +10101,14 @@ th{font-weight:700;background:#f1f1f1}
   updateSystemRibbon("Trang chủ", "");
   startSystemClock();
   state.managerPasswordConfigs = saveManagerPasswordConfigs(loadManagerPasswordConfigs());
+  state.penaltyAccessConfigs = savePenaltyAccessConfigs(loadPenaltyAccessConfigs());
   state.penaltyRecordsByUnit = readLocalPenaltyRecords();
   setHeroTitle(HOME_HERO_TITLE);
   renderAll();
   renderPasswordConfigPanel();
+  if (isPenaltyCloudReady()) {
+    void ensurePenaltyAccessConfigsReady({ force: true, background: true, maxAgeMs: 0 }).catch(() => {});
+  }
   window.setTimeout(warmFacilityCaches, 120);
   void ensureManagerPasswordConfigsReady({ force: true, maxAgeMs: 0 }).then(() => {
     renderPasswordConfigPanel();
