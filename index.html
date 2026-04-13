@@ -508,11 +508,15 @@
       width:100%;
     }
     #penaltyFacilityAddress.is-empty,
-    #penaltyEditFacilityAddress.is-empty{
+    #penaltyEditFacilityAddress.is-empty,
+    #penaltyOfficer.is-empty,
+    #penaltyEditOfficer.is-empty{
       color:var(--muted);
     }
     #penaltyFacilityAddress option,
-    #penaltyEditFacilityAddress option{
+    #penaltyEditFacilityAddress option,
+    #penaltyOfficer option,
+    #penaltyEditOfficer option{
       color:var(--text);
     }
     .penalty-entry-footer{
@@ -1751,8 +1755,11 @@
       }
     }
 
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+  
+
+    .support-trash{display:none !important;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="top-unit">
@@ -1773,8 +1780,6 @@
 <div class="card" id="accessCard">
 <div class="card-body">
 <div class="role-section">
-
-
 <div class="role-list" id="penaltyStatsCardList">
 <button class="role-btn report-entry-btn" id="openPenaltySelectorBtn" type="button">
 <strong>Thống kê xử phạt</strong>
@@ -1861,7 +1866,7 @@
 </div>
 </div>
 <div class="lookup-stage">
-<iframe id="violationLookupFrame" class="lookup-frame" title="Tra cứu vi phạm" loading="lazy"></iframe>
+<iframe class="lookup-frame" id="violationLookupFrame" loading="lazy" title="Tra cứu vi phạm"></iframe>
 </div>
 </div>
 <div class="hidden" id="penaltyPanel">
@@ -1895,7 +1900,7 @@
 </div>
 <div class="penalty-officer-entry hidden">
 <label for="penaltyOfficer">Người tham mưu</label>
-<select id="penaltyOfficer" class="is-empty"><option value="">Chọn Người tham mưu...</option></select>
+<select class="is-empty" id="penaltyOfficer"><option value="">Chọn người tham mưu...</option></select>
 </div>
 </div>
 <div class="penalty-entry-footer">
@@ -1963,7 +1968,6 @@
 </div>
 </div>
 </div>
-
 <div class="hidden" id="penaltyAdminPanel">
 <div class="penalty-panel-head">
 <div class="penalty-panel-title"><h3 id="penaltyAdminHeading">CẤU HÌNH ADMIN</h3></div>
@@ -1993,7 +1997,6 @@
 <div class="status info" id="penaltyAccessConfigStatus" style="margin-top:14px"></div>
 </div>
 </div>
-
 <div class="modal-backdrop hidden" id="penaltyEditModal">
 <div class="modal-card modal-large">
 <div class="modal-head">
@@ -2026,7 +2029,7 @@
 </div>
 <div>
 <label for="penaltyEditOfficer">Người tham mưu</label>
-<select id="penaltyEditOfficer" class="is-empty"><option value="">Chọn Người tham mưu...</option></select>
+<select class="is-empty" id="penaltyEditOfficer"><option value="">Chọn người tham mưu...</option></select>
 </div>
 <div>
 <label for="penaltyEditBbNumber">Số BB VPHC</label>
@@ -2034,7 +2037,7 @@
 </div>
 <div>
 <label for="penaltyEditBbDate">Ngày BB VPHC</label>
-<input id="penaltyEditBbDate" type="date" inputmode="none" autocomplete="off"/>
+<input autocomplete="off" id="penaltyEditBbDate" inputmode="none" type="date"/>
 </div>
 <div>
 <label for="penaltyEditQdNumber">Số QĐ XPVPHC</label>
@@ -2042,7 +2045,7 @@
 </div>
 <div>
 <label for="penaltyEditQdDate">Ngày QĐ XPVPHC</label>
-<input id="penaltyEditQdDate" type="date" inputmode="none" autocomplete="off"/>
+<input autocomplete="off" id="penaltyEditQdDate" inputmode="none" type="date"/>
 </div>
 <div>
 <label for="penaltyEditAuthority">Thẩm quyền</label>
@@ -2140,625 +2143,13 @@
 </div>
 </div>
 </div>
-<div class="hidden" id="viewerPanel">
-<div class="flex" style="justify-content:flex-end; margin-bottom:6px">
-<div class="flex">
-<button class="secondary" id="btnPrintWeeklyReportViewer">In báo cáo</button>
-<button class="secondary" id="btnRefreshViewer">Làm mới</button>
-<button class="secondary" id="btnBackHome">Quay lại</button>
-</div>
-</div>
-<div class="summary-grid" id="viewerSummaryGrid">
-<div class="summary-box">
-<div class="label">Tổng công việc</div>
-<div class="value" id="statTotal">0</div>
-</div>
-<div class="summary-box doing">
-<div class="label">Đang thực hiện</div>
-<div class="value" id="statDoing">0</div>
-</div>
-<div class="summary-box done">
-<div class="label">Hoàn thành</div>
-<div class="value" id="statDone">0</div>
-</div>
-<div class="summary-box overdue">
-<div class="label">Quá hạn</div>
-<div class="value" id="statOverdue">0</div>
-</div>
-</div>
-<div class="panel-box viewer-quick-panel" style="margin-bottom:14px">
-<h3 style="margin:0 0 4px;font-size:20px">Nhập công việc</h3>
-<div class="muted small">Nhập nhanh công việc ngay tại phần xem công việc.</div>
-<div class="viewer-quick-grid">
-<div class="viewer-quick-column viewer-quick-content-wrap">
-<div class="viewer-quick-field">
-<label for="viewerQuickContent">Nội dung</label>
-<textarea id="viewerQuickContent" placeholder="Nhập nội dung công việc cần bổ sung..."></textarea>
-</div>
-<div class="viewer-quick-field">
-<label for="viewerQuickDescription">Mô tả</label>
-<textarea id="viewerQuickDescription" placeholder="Nhập mô tả chi tiết cho công việc..."></textarea>
-</div>
-</div>
-<div class="viewer-quick-column">
-<div class="viewer-quick-field">
-<label for="viewerQuickDueDate">Thời hạn</label>
-<input id="viewerQuickDueDate" type="date"/>
-</div>
-<div class="viewer-quick-field">
-<div class="attachment-box">
-<label class="viewer-quick-inline-label" for="viewerQuickAttachment">Tải tệp đính kèm</label>
-<input accept="image/*,application/pdf,.pdf" id="viewerQuickAttachment" multiple="" type="file"/>
-<div class="attachment-actions">
-<button class="secondary" id="btnRemoveViewerQuickAttachment" type="button">Xóa tệp</button>
-<div class="viewer-quick-inline-preview" id="viewerQuickAttachmentPreview"></div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="flex viewer-quick-footer">
-<button class="success" id="btnSaveViewerQuickTask">Lưu công việc</button>
-<div class="status info" id="viewerQuickSaveStatus">Sẵn sàng nhập công việc mới.</div>
-</div>
-</div>
-<div class="panel-box">
-<div class="filter-grid">
-<div>
-<label for="filterKeyword">Tìm kiếm</label>
-<input id="filterKeyword" placeholder="Tìm theo tên công việc, nội dung, ghi chú..." type="text"/>
-</div>
-<div>
-<label for="filterAssignee">Người phụ trách</label>
-<select id="filterAssignee">
-<option value="">Tất cả</option>
-</select>
-</div>
-<div>
-<label for="filterWeek">Tuần giao</label>
-<select id="filterWeek">
-<option value="">Tất cả</option>
-</select>
-</div>
-<div>
-<label for="filterStatus">Trạng thái</label>
-<select id="filterStatus">
-<option value="">Tất cả</option>
-<option value="Đang thực hiện">Đang thực hiện</option>
-<option value="Hoàn thành">Hoàn thành</option>
-</select>
-</div>
-<div>
-<label for="filterSoonDue">Ghi chú</label>
-<select id="filterSoonDue">
-<option value="">Tất cả</option>
-<option value="yes">Chỉ việc sắp hết hạn</option>
-<option value="overdue">Quá hạn</option>
-</select>
-</div>
-<div>
-<label> </label>
-<button class="secondary" id="btnClearFilters">Xóa lọc</button>
-</div>
-</div>
-<div class="table-wrap">
-<table class="viewer-task-table">
-<thead>
-<tr>
-<th>STT</th>
-<th>Công việc</th>
-<th>Tuần giao</th>
-<th>Hạn hoàn thành</th>
-<th>Trạng thái</th>
-<th>Ghi chú</th>
-</tr>
-</thead>
-<tbody id="viewerTaskBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-<div class="hidden" id="adminPanel">
-<div class="facility-admin-shell">
-<div class="admin-toolbar facility-toolbar" style="justify-content:space-between">
-<div class="facility-toolbar-title" id="facilityManagerLabel"></div>
-<div class="flex" style="justify-content:flex-end; width:100%">
-<button class="secondary" id="btnFacilityPrint" type="button">In danh sách</button>
-<button class="secondary hidden" id="btnFacilityReport" type="button">Báo cáo tổng hợp</button>
-<button class="secondary" id="btnFacilityExport" type="button">Xuất Excel</button>
-<button class="secondary" id="btnFacilityLogout" type="button">Quay lại</button>
-</div>
-</div>
-<div class="panel-box compact-form-panel facility-form-panel" id="facilityFormPanel" style="margin-bottom:16px">
-<input id="facilityId" type="hidden"/>
-<input id="facilityInspectionDate" type="hidden"/>
-<input id="facilityInsurance" type="hidden"/>
-<input id="facilityMaintenance" type="hidden"/>
-<input id="facilityDrill" type="hidden"/>
-<input id="facilityTraining" type="hidden"/>
-<div class="form-grid" style="margin-top:10px">
-<div>
-<label for="facilityName">Tên cơ sở</label>
-<input id="facilityName" placeholder="Nhập tên cơ sở" type="text"/>
-</div>
-<div>
-<label for="facilityCode">Mã cơ sở</label>
-<input id="facilityCode" placeholder="Nhập mã cơ sở" type="text"/>
-</div>
-<div>
-<label for="facilityAddress">Địa chỉ</label>
-<input id="facilityAddress" placeholder="Nhập địa chỉ cơ sở" type="text"/>
-</div>
-<div>
-<label for="facilityField">Lĩnh vực</label>
-<select id="facilityField">
-<option selected="" value="Cơ sở thương mại, dịch vụ">Cơ sở thương mại, dịch vụ</option>
-<option value="Nhà ở, trụ sở làm việc, văn phòng, đa năng">Nhà ở, trụ sở làm việc, văn phòng, đa năng</option>
-<option value="Cơ sở giáo dục">Cơ sở giáo dục</option>
-<option value="Cơ sở y tế">Cơ sở y tế</option>
-<option value="Cơ sở văn hóa, thể thao, du lịch">Cơ sở văn hóa, thể thao, du lịch</option>
-<option value="Cơ sở giao thông, vận tải">Cơ sở giao thông, vận tải</option>
-<option value="Cơ sở xăng dầu, dầu khí">Cơ sở xăng dầu, dầu khí</option>
-<option value="Cơ sở năng lượng">Cơ sở năng lượng</option>
-<option value="Cơ sở hóa chất">Cơ sở hóa chất</option>
-<option value="Cơ sở công nghiệp, nhà kho">Cơ sở công nghiệp, nhà kho</option>
-<option value="Khác">Khác</option>
-</select>
-</div>
-<div>
-<label for="facilityAppendix">Nhóm</label>
-<select id="facilityAppendix">
-<option selected="" value="I">I</option>
-<option value="II">II</option>
-</select>
-</div>
-</div>
-<div class="flex" style="margin-top:14px; gap:10px; flex-wrap:wrap">
-<button class="success" id="btnSaveFacility" type="button">Lưu cơ sở</button>
-</div>
-<div class="status info" id="facilitySaveStatus" style="margin-top:14px">Sẵn sàng cập nhật danh sách cơ sở.</div>
-</div>
-<div class="panel-box hidden" id="facilityPasswordConfigPanel" style="margin-bottom:16px">
-<h3 style="margin:0 0 6px;font-size:22px">Cấu hình mật khẩu từng mục cá nhân</h3>
-<div class="muted small">Mỗi mục cá nhân có 2 mật khẩu đăng nhập. Cấu hình được đồng bộ qua Apps Script để tất cả mọi người cùng dùng chung.</div>
-<div class="table-wrap" style="margin-top:12px; max-height:none">
-<table class="password-config-table">
-<thead>
-<tr>
-<th>STT</th>
-<th>Mục cá nhân</th>
-<th>Mật khẩu 1</th>
-<th>Mật khẩu 2</th>
-</tr>
-</thead>
-<tbody id="passwordConfigBody"></tbody>
-</table>
-</div>
-<div class="flex" style="margin-top:14px">
-<button class="success" id="btnSavePasswordConfigs" type="button">Lưu cấu hình mật khẩu</button>
-<button class="secondary" id="btnResetPasswordConfigs" type="button">Khôi phục mặc định</button>
-<button class="secondary" id="btnTogglePasswordConfigs" type="button">Hiện mật khẩu</button>
-</div>
-<div class="status info" id="passwordConfigStatus" style="margin-top:14px">Admin có thể cấu hình 2 mật khẩu cho từng mục cá nhân.</div>
-</div>
-<div class="summary-grid facility-summary-grid">
-<div class="summary-box facility-summary-box active" data-view="all" id="facilityBoxTotal" title="Bấm để xem toàn bộ cơ sở">
-<div class="label">Tổng số cơ sở</div>
-<div class="value" id="facilityStatTotal">0</div>
-</div>
-<div class="summary-box facility-summary-box" data-view="inspection" id="facilityBoxInspected" title="Bấm để xem danh sách cơ sở đã kiểm tra">
-<div class="label">Đã kiểm tra</div>
-<div class="value" id="facilityStatInspected">0</div>
-</div>
-<div class="summary-box facility-summary-box" data-view="insurance" id="facilityBoxInsurance" title="Bấm để xem danh sách cơ sở đã có bảo hiểm">
-<div class="label">Đã có bảo hiểm</div>
-<div class="value" id="facilityStatInsurance">0</div>
-</div>
-<div class="summary-box facility-summary-box" data-view="maintenance" id="facilityBoxMaintenance" title="Bấm để xem danh sách cơ sở đã bảo dưỡng">
-<div class="label">Đã bảo dưỡng</div>
-<div class="value" id="facilityStatMaintenance">0</div>
-</div>
-<div class="summary-box facility-summary-box" data-view="drill" id="facilityBoxDrill" title="Bấm để xem danh sách cơ sở đã thực tập">
-<div class="label">Đã thực tập</div>
-<div class="value" id="facilityStatDrill">0</div>
-</div>
-<div class="summary-box facility-summary-box" data-view="training" id="facilityBoxTraining" title="Bấm để xem danh sách cơ sở đã bồi dưỡng">
-<div class="label">Đã bồi dưỡng</div>
-<div class="value" id="facilityStatTraining">0</div>
-</div>
-</div>
-<div class="panel-box" style="margin-bottom:16px">
-<div class="flex" style="justify-content:space-between; margin-bottom:10px; gap:10px; flex-wrap:wrap">
-<h3 style="margin:0;font-size:22px">Lọc danh sách cơ sở</h3>
-</div>
-<div class="filter-grid">
-<div>
-<label for="facilityFilterName">Tên cơ sở</label>
-<input id="facilityFilterName" placeholder="Tìm theo tên cơ sở" type="text"/>
-</div>
-<div id="facilityFilterDescriptionWrap" style="display:none">
-<label for="facilityFilterDescription">Mô tả</label>
-<input id="facilityFilterDescription" placeholder="Tìm theo mô tả" type="text"/>
-</div>
-<div>
-<label for="facilityFilterAddress">Địa chỉ</label>
-<input id="facilityFilterAddress" placeholder="Tìm theo địa chỉ" type="text"/>
-</div>
-<div>
-<label for="facilityFilterField">Lĩnh vực</label>
-<select id="facilityFilterField">
-<option value="">Tất cả lĩnh vực</option>
-<option value="Cơ sở thương mại, dịch vụ">Cơ sở thương mại, dịch vụ</option>
-<option value="Nhà ở, trụ sở làm việc, văn phòng, đa năng">Nhà ở, trụ sở làm việc, văn phòng, đa năng</option>
-<option value="Cơ sở giáo dục">Cơ sở giáo dục</option>
-<option value="Cơ sở y tế">Cơ sở y tế</option>
-<option value="Cơ sở văn hóa, thể thao, du lịch">Cơ sở văn hóa, thể thao, du lịch</option>
-<option value="Cơ sở giao thông, vận tải">Cơ sở giao thông, vận tải</option>
-<option value="Cơ sở xăng dầu, dầu khí">Cơ sở xăng dầu, dầu khí</option>
-<option value="Cơ sở năng lượng">Cơ sở năng lượng</option>
-<option value="Cơ sở hóa chất">Cơ sở hóa chất</option>
-<option value="Cơ sở công nghiệp, nhà kho">Cơ sở công nghiệp, nhà kho</option>
-<option value="Khác">Khác</option>
-</select>
-</div>
-<div>
-<label for="facilityFilterAppendix">Nhóm</label>
-<select id="facilityFilterAppendix">
-<option value="">Tất cả nhóm</option>
-<option value="I">I</option>
-<option value="II">II</option>
-</select>
-</div>
-<div>
-<label for="facilityFilterCodeStatus">Mã cơ sở</label>
-<select id="facilityFilterCodeStatus">
-<option value="">Tất cả</option>
-<option value="has">Đã có mã</option>
-<option value="missing">Chưa có mã</option>
-</select>
-</div>
-<div id="facilityFilterOwnerWrap" style="display:none">
-<label for="facilityFilterOwner">Người quản lý</label>
-<select id="facilityFilterOwner">
-<option value="">Tất cả người quản lý</option>
-<option value="Phạm Thái Sơn">Phạm Thái Sơn</option>
-<option value="Phan Văn Thanh">Phan Văn Thanh</option>
-<option value="Phạm Thanh Tùng">Phạm Thanh Tùng</option>
-<option value="Hoàng Minh Quang">Hoàng Minh Quang</option>
-<option value="Nguyễn Xuân Quang">Nguyễn Xuân Quang</option>
-<option value="Nguyễn Văn Nguyên">Nguyễn Văn Nguyên</option>
-<option value="Phạm Quyền Anh">Phạm Quyền Anh</option>
-<option value="Phí Văn Tuyển">Phí Văn Tuyển</option>
-<option value="Tạ Minh Phương">Tạ Minh Phương</option>
-</select>
-</div>
-<div class="filter-action">
-<button class="secondary" id="btnClearFacilityFilters" type="button">Xóa lọc</button>
-</div>
-</div>
-<div class="muted small" id="facilityFilterSummary" style="margin-top:12px">Đang hiển thị 0 cơ sở trong bảng.</div>
-</div>
-<div class="panel-box">
-<div class="flex" style="justify-content:space-between; margin-bottom:6px; gap:10px; flex-wrap:wrap">
-<h3 style="margin:0;font-size:22px">Danh sách cơ sở</h3>
-<div class="muted small" id="facilityTableHint">Nhấp đúp vào dòng để mở lại biểu mẫu sửa.</div>
-</div>
-<div class="table-wrap">
-<table class="facility-table">
-<thead>
-<tr>
-<th class="facility-col-stt">STT</th>
-<th class="facility-col-code">Mã cơ sở</th>
-<th class="facility-col-name">Tên cơ sở</th>
-<th>Địa chỉ</th>
-<th>Lĩnh vực</th>
-<th>Nhóm</th>
-<th class="facility-owner-col">Người quản lý</th>
-<th>Ngày kiểm tra</th>
-<th>Bảo hiểm</th>
-<th>Bảo dưỡng</th>
-<th>Thực tập</th>
-<th>Bồi dưỡng</th>
-<th>Ghi chú</th>
-</tr>
-</thead>
-<tbody id="facilityBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-<div class="legacy-admin-shell hidden" style="display:none">
-<div class="admin-toolbar">
-<div class="flex">
-<button class="secondary" id="btnPrintWeeklyReportAdmin">In báo cáo</button>
-<button id="btnRefreshAdmin">Làm mới</button>
-<button class="secondary" id="btnExportCsv">Xuất Excel</button>
-<button class="secondary" id="btnLogoutAdmin">Đăng xuất</button>
-</div>
-</div>
-<div class="panel-box compact-form-panel" style="margin-bottom:16px">
-<h3 style="margin:0 0 6px;font-size:22px">Biểu mẫu công việc</h3>
-<div class="muted small">Nhập đầy đủ thông tin để tạo mới công việc.</div>
-<input id="taskId" type="hidden"/>
-<div class="form-grid" style="margin-top:10px">
-<div class="full-col">
-<label for="taskTitle">Tên công việc</label>
-<input id="taskTitle" placeholder="Ví dụ: Rà soát hồ sơ nghiệm thu PCCC tháng 3" type="text"/>
-</div>
-<div>
-<label for="taskAssignee">Người phụ trách</label>
-<select id="taskAssignee">
-<option value="">Chọn người phụ trách</option>
-<option value="Sơn">Sơn</option>
-<option value="Thanh">Thanh</option>
-<option value="Nam">Nam</option>
-<option value="Tùng">Tùng</option>
-<option value="Uyên">Uyên</option>
-<option value="M. Quang">M. Quang</option>
-<option value="X. Quang">X. Quang</option>
-<option value="Nguyên">Nguyên</option>
-<option value="Quyền Anh">Quyền Anh</option>
-<option value="Tuyển">Tuyển</option>
-<option value="Phương">Phương</option>
-<option value="__custom__">Tự điền</option>
-</select>
-<input class="hidden" id="taskAssigneeCustom" placeholder="Nhập người phụ trách" style="margin-top:8px" type="text"/>
-</div>
-<div>
-<label for="taskAssignedWeek">Thời gian giao (Tuần/Tháng)</label>
-<div class="week-input-wrap">
-<input id="taskAssignedWeek" type="week"/>
-<div class="week-input-display empty" id="taskAssignedWeekInlineDisplay">Chọn Tuần/Tháng</div>
-</div>
-<div class="week-preview" id="taskAssignedWeekDisplay">-</div>
-</div>
-<div>
-<label for="taskDueDate">Hạn hoàn thành</label>
-<input id="taskDueDate" type="date"/>
-</div>
-<div>
-<label for="taskStatus">Trạng thái</label>
-<select id="taskStatus">
-<option selected="" value="Đang thực hiện">Đang thực hiện</option>
-<option value="Hoàn thành">Hoàn thành</option>
-</select>
-</div>
-<div class="full-col split-field">
-<div class="field-box">
-<label for="taskDescription">Nội dung công việc</label>
-<textarea id="taskDescription" placeholder="Mô tả ngắn gọn yêu cầu, đầu việc, lưu ý thực hiện..."></textarea>
-</div>
-<div class="field-box">
-<label for="taskDescriptionImage">Tệp đính kèm</label>
-<div class="attachment-box">
-<input accept="image/*,application/pdf,.pdf" id="taskDescriptionImage" multiple="" type="file"/>
-<div class="attachment-actions">
-<button class="secondary" id="btnRemoveTaskImage" type="button">Xóa tệp</button>
-</div>
-<div class="image-preview-grid" id="taskImagePreview"></div>
-</div>
-</div>
-</div>
-<div class="full-col split-field">
-<div class="field-box">
-<label for="taskNote">Ghi chú</label>
-<textarea id="taskNote" placeholder="Nhập ghi chú bổ sung, yêu cầu phối hợp, văn bản liên quan..."></textarea>
-</div>
-<div class="field-box">
-<label for="taskNoteFile">Tệp đính kèm cho ghi chú</label>
-<div class="attachment-box">
-<input accept="image/*,application/pdf,.pdf" id="taskNoteFile" multiple="" type="file"/>
-<div class="attachment-actions">
-<button class="secondary" id="btnRemoveTaskNoteFile" type="button">Xóa tệp</button>
-</div>
-<div class="image-preview-grid" id="taskNotePreview"></div>
-</div>
-</div>
-</div>
-</div>
-<div class="flex" style="margin-top:14px">
-<button class="success" id="btnSaveTask">Lưu công việc</button>
-<button class="secondary" id="btnResetForm">Tạo mới</button>
-</div>
-<div class="status info" id="adminSaveStatus" style="margin-top:14px">Sẵn sàng cập nhật dữ liệu.</div>
-</div>
-<div class="summary-grid">
-<div class="summary-box">
-<div class="label">Tổng công việc</div>
-<div class="value" id="adminStatTotal">0</div>
-</div>
-<div class="summary-box doing">
-<div class="label">Đang thực hiện</div>
-<div class="value" id="adminStatDoing">0</div>
-</div>
-<div class="summary-box done">
-<div class="label">Hoàn thành</div>
-<div class="value" id="adminStatDone">0</div>
-</div>
-<div class="summary-box overdue">
-<div class="label">Quá hạn</div>
-<div class="value" id="adminStatOverdue">0</div>
-</div>
-</div>
-<div class="panel-box">
-<div class="flex" style="justify-content:space-between; margin-bottom:6px">
-<h3 style="margin:0;font-size:22px">Danh sách quản trị</h3>
-</div>
-<div class="table-wrap">
-<table>
-<thead>
-<tr>
-<th>STT</th>
-<th>Công việc</th>
-<th>Tuần giao</th>
-<th>Hạn</th>
-<th>Trạng thái</th>
-<th>Ghi chú</th>
-<th>Thao tác</th>
-</tr>
-</thead>
-<tbody id="adminTaskBody"></tbody>
-</table>
-</div>
-</div>
-</div></div> </div>
+
+ </div>
 </div>
 </div>
 </div>
 
 
-<div class="hidden" id="reportPanel">
-<div class="panel-box" style="margin-bottom:16px">
-<div class="flex" style="justify-content:space-between; gap:10px; flex-wrap:wrap">
-<div>
-<h3 style="margin:0;font-size:24px">Báo cáo tổng hợp</h3>
-<div class="muted small hidden" id="reportSub"></div>
-</div>
-<div class="flex">
-<button class="secondary" id="btnReportPrint" type="button">In báo cáo</button>
-<button class="secondary" id="btnReportBack" type="button">Quay lại</button>
-</div>
-</div>
-<div class="status info" id="reportStatus" style="margin-top:14px">Sẵn sàng tạo báo cáo.</div>
-</div>
-<div class="summary-grid report-summary-grid">
-<div class="summary-box report-highlight">
-<div class="label">Tổng số cơ sở</div>
-<div class="value" id="reportStatTotal">0</div>
-</div>
-<div class="summary-box report-highlight">
-<div class="label">Số lĩnh vực</div>
-<div class="value" id="reportStatFieldCount">0</div>
-</div>
-<div class="summary-box report-highlight">
-<div class="label">Số nhóm</div>
-<div class="value" id="reportStatGroupCount">0</div>
-</div>
-<div class="summary-box report-highlight">
-<div class="label">Số địa bàn</div>
-<div class="value" id="reportStatAreaCount">0</div>
-</div>
-<div class="summary-box report-warning">
-<div class="label">Sắp hết hạn bảo hiểm</div>
-<div class="value" id="reportStatInsuranceSoon">0</div>
-</div>
-<div class="summary-box report-danger">
-<div class="label">Sắp hết hạn bảo dưỡng</div>
-<div class="value" id="reportStatMaintenanceSoon">0</div>
-</div>
-</div>
-<div class="report-grid report-grid-3">
-<div class="panel-box">
-<h3>Phân tích theo lĩnh vực</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th class="report-rank">#</th><th>Lĩnh vực</th><th class="report-count">Số cơ sở</th><th class="report-percent">Tỷ lệ</th><th class="report-bar-cell">Minh họa</th></tr></thead>
-<tbody id="reportFieldBody"></tbody>
-</table>
-</div>
-</div>
-<div class="panel-box">
-<h3>Phân tích theo nhóm</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th class="report-rank">#</th><th>Nhóm</th><th class="report-count">Số cơ sở</th><th class="report-percent">Tỷ lệ</th><th class="report-bar-cell">Minh họa</th></tr></thead>
-<tbody id="reportGroupBody"></tbody>
-</table>
-</div>
-</div>
-<div class="panel-box">
-<h3>Phân tích theo Mô tả</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th class="report-rank">#</th><th>Mô tả</th><th class="report-count">Số cơ sở</th><th class="report-percent">Tỷ lệ</th><th class="report-bar-cell">Minh họa</th></tr></thead>
-<tbody id="reportDescriptionBody"></tbody>
-</table>
-</div>
-</div>
-<div class="panel-box">
-<h3>Phân tích theo địa bàn</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th class="report-rank">#</th><th>Địa bàn</th><th class="report-count">Số cơ sở</th><th class="report-percent">Tỷ lệ</th><th class="report-bar-cell">Minh họa</th></tr></thead>
-<tbody id="reportAreaBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-<div class="panel-box report-issue-panel">
-<h3 style="margin:0 0 6px;font-size:22px">Danh sách cơ sở còn tồn tại</h3>
-<div class="muted small" id="reportIssueHint">Nhấp đúp vào dòng trong danh sách để bổ sung loại tồn tại, nội dung và tiến độ khắc phục.</div>
-<div class="table-wrap" style="margin-top:12px">
-<table class="report-table report-issue-table">
-<thead><tr><th class="report-rank">STT</th><th>Tên cơ sở</th><th>Loại tồn tại</th><th>Nội dung</th><th>Tiến độ khắc phục</th></tr></thead>
-<tbody id="reportIssueBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-
-<div class="modal-backdrop hidden" id="reportIssueModal">
-<div class="modal-card modal-large">
-<div class="modal-head">
-<h3 style="margin:0;font-size:24px">Cập nhật tồn tại cơ sở</h3>
-<div class="muted small" style="margin-top:6px">Bổ sung loại tồn tại, nội dung và tiến độ khắc phục cho cơ sở được chọn.</div>
-</div>
-<div class="modal-body">
-<input id="reportIssueFacilityId" type="hidden"/>
-<div class="form-grid">
-<div class="full-col">
-<label for="reportIssueFacilityName">Tên cơ sở</label>
-<input id="reportIssueFacilityName" readonly type="text"/>
-</div>
-<div>
-<label for="reportIssueType">Loại tồn tại</label>
-<select id="reportIssueType">
-<option value="">Chưa chọn</option>
-<option value="NQ32">NQ32</option>
-<option value="TDNT">TDNT</option>
-<option value="Tồn tại sau kiểm tra">Tồn tại sau kiểm tra</option>
-</select>
-</div>
-<div class="full-col">
-<label for="reportIssueContent">Nội dung</label>
-<textarea id="reportIssueContent" placeholder="Nhập nội dung tồn tại của cơ sở..."></textarea>
-<div class="muted small">Có thể nhấn Alt + Enter để xuống dòng khi nhập nội dung dài.</div>
-</div>
-<div class="full-col">
-<label for="reportIssueProgress">Tiến độ khắc phục</label>
-<textarea id="reportIssueProgress" placeholder="Nhập tiến độ khắc phục hiện tại..."></textarea>
-<div class="muted small">Có thể nhấn Alt + Enter để xuống dòng khi nhập nội dung dài.</div>
-</div>
-</div>
-<div class="modal-error" id="reportIssueModalError"></div>
-<div class="flex" style="justify-content:flex-end; margin-top:8px">
-<button class="secondary" id="btnCancelReportIssue" type="button">Hủy</button>
-<button class="success" id="btnSaveReportIssue" type="button">Lưu cập nhật</button>
-</div>
-</div>
-</div>
-</div>
-
-<div class="modal-backdrop hidden" id="viewerLoginModal">
-<div class="modal-card">
-<div class="modal-head">
-<h3 style="margin:0;font-size:24px">Đăng nhập xem công việc</h3>
-<div class="muted small" style="margin-top:6px">Nhập mật khẩu để mở phần xem công việc.</div>
-</div>
-<div class="modal-body">
-<label for="viewerPasswordInput">Mật khẩu</label>
-<div class="password-row">
-<input id="viewerPasswordInput" placeholder="Nhập mật khẩu" type="password"/>
-<button class="secondary password-toggle" id="btnToggleViewerPassword" type="button">Hiện mật khẩu</button>
-</div>
-<div class="modal-error" id="viewerModalError"></div>
-<div class="flex" style="justify-content:flex-end; margin-top:8px">
-<button class="secondary" id="btnCancelViewerLogin">Hủy</button>
-<button id="btnSubmitViewerLogin">Đăng nhập</button>
-</div>
-</div>
-</div>
-</div>
 
 <div class="modal-backdrop hidden" id="penaltyAccessModal">
 <div class="modal-card">
@@ -2780,273 +2171,10 @@
 </div>
 </div>
 
-<div class="modal-backdrop hidden" id="managerLoginModal">
-<div class="modal-card">
-<div class="modal-head">
-<h3 id="managerLoginTitle" style="margin:0;font-size:24px">Đăng nhập mục cá nhân</h3>
-<div class="muted small" id="managerLoginDesc" style="margin-top:6px">Nhập 1 trong 2 mật khẩu đã được cấp để mở mục này.</div>
-</div>
-<div class="modal-body">
-<label for="managerPasswordInput">Mật khẩu</label>
-<div class="password-row">
-<input id="managerPasswordInput" placeholder="Nhập mật khẩu" type="password"/>
-<button class="secondary password-toggle" id="btnToggleManagerPassword" type="button">Hiện mật khẩu</button>
-</div>
-<div class="modal-error" id="managerModalError"></div>
-<div class="flex" style="justify-content:flex-end; margin-top:8px">
-<button class="secondary" id="btnCancelManagerLogin">Hủy</button>
-<button id="btnSubmitManagerLogin">Đăng nhập</button>
-</div>
-</div>
-</div>
-</div>
-<div class="modal-backdrop hidden" id="adminLoginModal">
-<div class="modal-card">
-<div class="modal-head">
-<h3 id="adminLoginTitle" style="margin:0;font-size:24px">Đăng nhập</h3>
-<div class="muted small" id="adminLoginDesc" style="margin-top:6px">Nhập mật khẩu để mở phần quản lý cơ sở.</div>
-</div>
-<div class="modal-body">
-<label for="adminPasswordInput">Mật khẩu</label>
-<div class="password-row">
-<input id="adminPasswordInput" placeholder="Nhập mật khẩu" type="password"/>
-<button class="secondary password-toggle" id="btnToggleAdminPassword" type="button">Hiện mật khẩu</button>
-</div>
-<div class="modal-error" id="adminModalError"></div>
-<div class="flex" style="justify-content:flex-end; margin-top:8px">
-<button class="secondary" id="btnCancelAdminLogin">Hủy</button>
-<button id="btnSubmitAdminLogin">Đăng nhập</button>
-</div>
-</div>
-</div>
-</div>
-<div class="modal-backdrop hidden" id="editTaskModal">
-<div class="modal-card modal-large">
-<div class="modal-head">
-<h3 style="margin:0;font-size:24px">Chỉnh sửa công việc</h3>
-<div class="muted small" style="margin-top:6px">Cập nhật nội dung trực tiếp trong hộp thoại này rồi bấm lưu.</div>
-</div>
-<div class="modal-body">
-<input id="editTaskId" type="hidden"/>
-<div class="form-grid">
-<div class="full-col">
-<label for="editTaskTitle">Tên công việc</label>
-<input id="editTaskTitle" placeholder="Ví dụ: Rà soát hồ sơ nghiệm thu PCCC tháng 3" type="text"/>
-</div>
-<div>
-<label for="editTaskAssignee">Người phụ trách</label>
-<select id="editTaskAssignee">
-<option value="">Chọn người phụ trách</option>
-<option value="Sơn">Sơn</option>
-<option value="Thanh">Thanh</option>
-<option value="Nam">Nam</option>
-<option value="Tùng">Tùng</option>
-<option value="Uyên">Uyên</option>
-<option value="M. Quang">M. Quang</option>
-<option value="X. Quang">X. Quang</option>
-<option value="Nguyên">Nguyên</option>
-<option value="Quyền Anh">Quyền Anh</option>
-<option value="Tuyển">Tuyển</option>
-<option value="Phương">Phương</option>
-</select>
-</div>
-<div>
-<label for="editTaskAssignedWeek">Thời gian giao (Tuần/Tháng)</label>
-<div class="week-input-wrap">
-<input id="editTaskAssignedWeek" type="week"/>
-<div class="week-input-display empty" id="editTaskAssignedWeekInlineDisplay">Chọn Tuần/Tháng</div>
-</div>
-<div class="week-preview" id="editTaskAssignedWeekDisplay">-</div>
-</div>
-<div>
-<label for="editTaskDueDate">Hạn hoàn thành</label>
-<input id="editTaskDueDate" type="date"/>
-</div>
-<div>
-<label for="editTaskStatus">Trạng thái</label>
-<select id="editTaskStatus">
-<option value="Đang thực hiện">Đang thực hiện</option>
-<option value="Hoàn thành">Hoàn thành</option>
-</select>
-</div>
-<div class="full-col split-field">
-<div class="field-box">
-<label for="editTaskDescription">Nội dung công việc</label>
-<textarea id="editTaskDescription" placeholder="Mô tả ngắn gọn yêu cầu, đầu việc, lưu ý thực hiện..."></textarea>
-</div>
-<div class="field-box">
-<label for="editTaskDescriptionImage">Tệp đính kèm</label>
-<div class="attachment-box">
-<input accept="image/*,application/pdf,.pdf" id="editTaskDescriptionImage" multiple="" type="file"/>
-<div class="attachment-actions">
-<div class="attachment-inline-preview" id="editTaskImagePreview"></div>
-<button class="secondary" id="btnRemoveEditTaskImage" type="button">Xóa tệp</button>
-</div>
-</div>
-</div>
-</div>
-<div class="full-col split-field">
-<div class="field-box">
-<label for="editTaskNote">Ghi chú</label>
-<textarea id="editTaskNote" placeholder="Nhập ghi chú bổ sung, yêu cầu phối hợp, văn bản liên quan..."></textarea>
-</div>
-<div class="field-box">
-<label for="editTaskNoteFile">Tệp đính kèm cho ghi chú</label>
-<div class="attachment-box">
-<input accept="image/*,application/pdf,.pdf" id="editTaskNoteFile" multiple="" type="file"/>
-<div class="attachment-actions">
-<div class="attachment-inline-preview" id="editTaskNotePreview"></div>
-<button class="secondary" id="btnRemoveEditTaskNoteFile" type="button">Xóa tệp</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="modal-error" id="editTaskModalError"></div>
-<div class="flex" style="justify-content:space-between; align-items:center; margin-top:8px; gap:10px; flex-wrap:wrap">
-<button class="danger" id="btnDeleteEditTask" type="button">Xóa việc</button>
-<div class="flex" style="justify-content:flex-end">
-<button class="secondary" id="btnCancelEditTask">Hủy</button>
-<button class="success" id="btnSaveEditTask">Lưu chỉnh sửa</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="modal-backdrop hidden" id="facilityEditModal">
-<div class="modal-card modal-large">
-<div class="modal-head">
-<h3 style="margin:0;font-size:24px">Chỉnh sửa cơ sở</h3>
-<div class="muted small" style="margin-top:6px">Cập nhật thông tin cơ sở trong hộp thoại này rồi bấm lưu.</div>
-</div>
-<div class="modal-body">
-<input id="facilityEditId" type="hidden"/>
-<div class="form-grid">
-<div class="full-col">
-<label for="facilityEditName">Tên cơ sở</label>
-<input id="facilityEditName" placeholder="Nhập tên cơ sở" type="text"/>
-</div>
-<div class="full-col">
-<label for="facilityEditDescription">Mô tả</label>
-<input id="facilityEditDescription" placeholder="Nhập mô tả cơ sở" type="text"/>
-</div>
-<div>
-<label for="facilityEditCode">Mã cơ sở</label>
-<input id="facilityEditCode" placeholder="Nhập mã cơ sở" type="text"/>
-</div>
-<div class="full-col">
-<label for="facilityEditAddress">Địa chỉ</label>
-<input id="facilityEditAddress" placeholder="Nhập địa chỉ cơ sở" type="text"/>
-</div>
-<div>
-<label for="facilityEditField">Lĩnh vực</label>
-<select id="facilityEditField">
-<option value="Cơ sở thương mại, dịch vụ">Cơ sở thương mại, dịch vụ</option>
-<option value="Nhà ở, trụ sở làm việc, văn phòng, đa năng">Nhà ở, trụ sở làm việc, văn phòng, đa năng</option>
-<option value="Cơ sở giáo dục">Cơ sở giáo dục</option>
-<option value="Cơ sở y tế">Cơ sở y tế</option>
-<option value="Cơ sở văn hóa, thể thao, du lịch">Cơ sở văn hóa, thể thao, du lịch</option>
-<option value="Cơ sở giao thông, vận tải">Cơ sở giao thông, vận tải</option>
-<option value="Cơ sở xăng dầu, dầu khí">Cơ sở xăng dầu, dầu khí</option>
-<option value="Cơ sở năng lượng">Cơ sở năng lượng</option>
-<option value="Cơ sở hóa chất">Cơ sở hóa chất</option>
-<option value="Cơ sở công nghiệp, nhà kho">Cơ sở công nghiệp, nhà kho</option>
-<option value="Khác">Khác</option>
-</select>
-</div>
-<div>
-<label for="facilityEditAppendix">Nhóm</label>
-<select id="facilityEditAppendix">
-<option value="I">I</option>
-<option value="II">II</option>
-</select>
-</div>
-<div class="hidden" id="facilityEditOwnerWrap">
-<label for="facilityEditOwner">Người quản lý</label>
-<select id="facilityEditOwner"></select>
-</div>
-<div>
-<label for="facilityEditInspectionDate">Ngày kiểm tra</label>
-<input id="facilityEditInspectionDate" type="date"/>
-</div>
-<div>
-<label for="facilityEditInsuranceDate">Bảo hiểm - Ngày mua</label>
-<input id="facilityEditInsuranceDate" type="date"/>
-</div>
-<div>
-<label for="facilityEditInsuranceCompany">Bảo hiểm - Công ty</label>
-<input id="facilityEditInsuranceCompany" placeholder="Nhập công ty bảo hiểm" type="text"/>
-</div>
-<div>
-<label for="facilityEditMaintenanceDate">Bảo dưỡng - Ngày mua</label>
-<input id="facilityEditMaintenanceDate" type="date"/>
-</div>
-<div>
-<label for="facilityEditMaintenanceCompany">Bảo dưỡng - Công ty</label>
-<input id="facilityEditMaintenanceCompany" placeholder="Nhập đơn vị/công ty bảo dưỡng" type="text"/>
-</div>
-<div>
-<label for="facilityEditDrill">Thực tập</label>
-<input id="facilityEditDrill" placeholder="Nhập thông tin thực tập" type="text"/>
-</div>
-<div>
-<label for="facilityEditTraining">Bồi dưỡng</label>
-<input id="facilityEditTraining" placeholder="Nhập thông tin bồi dưỡng" type="text"/>
-</div>
-<div>
-<label for="facilityEditIssueType">Ghi chú</label>
-<select id="facilityEditIssueType">
-<option value="">Chưa chọn</option>
-<option value="NQ32">NQ32</option>
-<option value="TDNT">TDNT</option>
-<option value="Tồn tại sau kiểm tra">Tồn tại sau kiểm tra</option>
-</select>
-</div>
-</div>
 
-<div class="facility-history-box">
-<h4>Lịch sử chỉnh sửa</h4>
-<div class="facility-history-list" id="facilityEditHistoryList">
-<div class="facility-history-empty">Chưa có lịch sử chỉnh sửa.</div>
-</div>
-</div>
-<div class="modal-error" id="facilityEditModalError"></div>
-<div class="flex" style="justify-content:space-between; align-items:center; margin-top:8px; gap:10px; flex-wrap:wrap">
-<button class="danger" id="btnDeleteFacilityModal" type="button">Xóa cơ sở</button>
-<div class="flex" style="justify-content:flex-end">
-<button class="secondary" id="btnCancelFacilityModal" type="button">Hủy</button>
-<button class="success" id="btnSaveFacilityModal" type="button">Lưu chỉnh sửa</button>
-</div>
-</div>
-</div>
-</div>
-</div>
 
-<div class="modal-backdrop hidden" id="facilityNoticeModal">
-<div class="modal-card modal-large">
-<div class="modal-head">
-<h3 id="facilityNoticeTitle" style="margin:0;font-size:24px">Thông báo cơ sở sắp đến hạn</h3>
-<div class="muted small" id="facilityNoticeDesc" style="margin-top:6px">Tổng hợp nhanh các cơ sở cần theo dõi trước khi vào danh sách quản lý.</div>
-</div>
-<div class="modal-body">
-<div class="facility-notice-grid">
-<div class="facility-notice-section warning">
-<h4 id="facilityNoticeInsuranceHeading">Các cơ sở sắp hết hạn bảo hiểm</h4>
-<div class="facility-notice-sub" id="facilityNoticeInsuranceCount"></div>
-<ul class="facility-notice-list" id="facilityNoticeInsuranceList"></ul>
-</div>
-<div class="facility-notice-section warning">
-<h4 id="facilityNoticeMaintenanceHeading">Các cơ sở sắp đến hạn bảo dưỡng</h4>
-<div class="facility-notice-sub" id="facilityNoticeMaintenanceCount"></div>
-<ul class="facility-notice-list" id="facilityNoticeMaintenanceList"></ul>
-</div>
-</div>
-</div>
-<div class="flex" style="justify-content:flex-end; padding:0 20px 20px; gap:10px">
-<button class="success" id="btnContinueFacilityNotice" type="button">Tiếp tục</button>
-</div>
-</div>
-</div>
+
+
 <div class="copyright">Design by Đội 2, Phòng PC07 Quảng Ninh</div>
 <script>
 (() => {
@@ -3279,6 +2407,7 @@
     penaltyRecordsByUnit: {},
     currentPenaltyEditId: "",
     penaltyInlineEditing: null,
+    penaltyPersistChains: {},
     pendingPenaltyAccessUnit: "",
     penaltyAccessConfigs: {},
     penaltyAccessConfigsLoadedAt: 0,
@@ -3303,7 +2432,47 @@
     }
   };
 
-  const $ = (id) => document.getElementById(id);
+  const __dummyClassList = {
+    add() {},
+    remove() {},
+    toggle() { return false; },
+    contains() { return true; }
+  };
+  const __dummyElement = new Proxy({
+    value: '',
+    textContent: '',
+    innerHTML: '',
+    innerText: '',
+    checked: false,
+    disabled: false,
+    files: [],
+    options: [],
+    children: [],
+    dataset: {},
+    style: {},
+    classList: __dummyClassList
+  }, {
+    get(target, prop) {
+      if (prop === Symbol.iterator) return function* () {};
+      if (prop in target) return target[prop];
+      if (prop === 'querySelector') return () => __dummyElement;
+      if (prop === 'querySelectorAll') return () => [];
+      if (prop === 'closest') return () => null;
+      if (prop === 'matches') return () => false;
+      if (prop === 'contains') return () => false;
+      if (prop === 'getAttribute') return () => null;
+      if (prop === 'setAttribute' || prop === 'removeAttribute' || prop === 'remove' || prop === 'appendChild' || prop === 'prepend' || prop === 'before' || prop === 'after' || prop === 'replaceChildren' || prop === 'addEventListener' || prop === 'removeEventListener' || prop === 'dispatchEvent' || prop === 'focus' || prop === 'blur' || prop === 'click' || prop === 'reset' || prop === 'scrollIntoView') return () => {};
+      if (prop === 'cloneNode') return () => __dummyElement;
+      if (prop === 'parentNode' || prop === 'parentElement') return null;
+      if (prop === 'length') return 0;
+      return undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    }
+  });
+  const $ = (id) => document.getElementById(id) || __dummyElement;
 
 
 
@@ -5034,7 +4203,7 @@
       renderPenaltyAddressSelect(editor, found.unitName, { value: originalValue, blankLabel: 'Chọn địa chỉ...' });
     } else if (field === 'officer') {
       editor.className = 'penalty-cell-editor-select';
-      renderPenaltyOfficerSelect(editor, found.unitName, { value: originalValue, blankLabel: 'Chọn Người tham mưu...' });
+      renderPenaltyOfficerSelect(editor, found.unitName, { value: originalValue, blankLabel: 'Chọn người tham mưu...' });
     } else if (useDateEditor) {
       editor.type = 'date';
       editor.className = 'penalty-cell-editor';
@@ -6123,7 +5292,11 @@
     return { ok: true, itemsByUnit: next, remote: true };
   }
 
-  async function persistPenaltyUnitRemote(unitName, options = {}) {
+  function delayPenaltyPersist(ms = 0) {
+    return new Promise(resolve => window.setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+  }
+
+  async function persistPenaltyUnitRemoteNow(unitName, options = {}) {
     const normalizedUnit = String(unitName || '').trim();
     if (!normalizedUnit || normalizedUnit === 'Phòng PC07' || normalizedUnit === 'Admin') {
       return { ok: false, skipped: true };
@@ -6132,18 +5305,45 @@
       return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
     }
     const rows = Array.isArray(state.penaltyRecordsByUnit?.[normalizedUnit]) ? state.penaltyRecordsByUnit[normalizedUnit] : [];
+    const requestFingerprint = JSON.stringify(buildPenaltyRemoteSavePayload(rows));
     const result = await savePenaltyUnitRecordsRemote(normalizedUnit, rows);
     if (result && result.ok) {
-      const returned = Array.isArray(result.items) ? result.items : (Array.isArray(result.records) ? result.records : rows);
-      state.penaltyRecordsByUnit = {
-        ...(state.penaltyRecordsByUnit || {}),
-        [normalizedUnit]: returned.map(normalizePenaltyRecord).filter(item => item.facilityName)
-      };
-      saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
-      if (options.render) renderPenaltyTable();
-      return { ok: true, remote: true };
+      const latestRows = Array.isArray(state.penaltyRecordsByUnit?.[normalizedUnit]) ? state.penaltyRecordsByUnit[normalizedUnit] : [];
+      const latestFingerprint = JSON.stringify(buildPenaltyRemoteSavePayload(latestRows));
+      if (latestFingerprint === requestFingerprint) {
+        const returned = Array.isArray(result.items) ? result.items : (Array.isArray(result.records) ? result.records : rows);
+        state.penaltyRecordsByUnit = {
+          ...(state.penaltyRecordsByUnit || {}),
+          [normalizedUnit]: returned.map(normalizePenaltyRecord).filter(item => item.facilityName)
+        };
+        saveLocalPenaltyRecords(state.penaltyRecordsByUnit);
+        if (options.render) renderPenaltyTable();
+      }
+      return { ok: true, remote: true, staleSkipped: latestFingerprint !== requestFingerprint };
     }
     return result || { ok: false, error: 'Không đồng bộ được dữ liệu xử phạt lên hệ thống.' };
+  }
+
+  function persistPenaltyUnitRemote(unitName, options = {}) {
+    const normalizedUnit = String(unitName || '').trim();
+    if (!normalizedUnit || normalizedUnit === 'Phòng PC07' || normalizedUnit === 'Admin') {
+      return Promise.resolve({ ok: false, skipped: true });
+    }
+    if (!isPenaltyCloudReady()) {
+      return Promise.resolve({ ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' });
+    }
+    const chainMap = state.penaltyPersistChains || (state.penaltyPersistChains = {});
+    const previous = chainMap[normalizedUnit] || Promise.resolve();
+    const task = previous
+      .catch(() => {})
+      .then(async () => {
+        if (options.background) await delayPenaltyPersist(120);
+        return persistPenaltyUnitRemoteNow(normalizedUnit, options);
+      });
+    chainMap[normalizedUnit] = task.finally(() => {
+      if (chainMap[normalizedUnit] === task) delete chainMap[normalizedUnit];
+    });
+    return task;
   }
 
   function getEditablePenaltyUnits() {
@@ -6205,7 +5405,7 @@
       refreshPenaltyAddressSelectStyle(select);
       return false;
     }
-    renderPenaltyOfficerSelect(select, select.dataset.unitName || state.currentPenaltyUnit, { value: nextValue, blankLabel: 'Chọn Người tham mưu...' });
+    renderPenaltyOfficerSelect(select, select.dataset.unitName || state.currentPenaltyUnit, { value: nextValue, blankLabel: 'Chọn người tham mưu...' });
     select.value = nextValue;
     select.dataset.previousValue = nextValue;
     refreshPenaltyAddressSelectStyle(select);
@@ -6224,7 +5424,7 @@
   }
 
   function renderPenaltyOfficerSelect(selectOrId, unitName = '', options = {}) {
-    const { value = '', includeBlank = true, blankLabel = 'Chọn Người tham mưu...', allowCustom = true } = options;
+    const { value = '', includeBlank = true, blankLabel = 'Chọn người tham mưu...', allowCustom = true } = options;
     const select = typeof selectOrId === 'string' ? $(selectOrId) : selectOrId;
     if (!select) return [];
     const normalizedValue = String(value || '').trim();
@@ -6248,7 +5448,7 @@
     const isEntry = target === 'entry';
     const select = $(isEntry ? 'penaltyOfficer' : 'penaltyEditOfficer');
     if (!select) return [];
-    return renderPenaltyOfficerSelect(select, unitName, { value, blankLabel: 'Chọn Người tham mưu...' });
+    return renderPenaltyOfficerSelect(select, unitName, { value, blankLabel: 'Chọn người tham mưu...' });
   }
 
   function applyPenaltyOfficerSuggestions(unitName = '', options = {}) {
@@ -6329,16 +5529,56 @@
     document.querySelectorAll('.penalty-officer-entry').forEach(el => el.classList.toggle('hidden', !showOfficer));
   }
 
+
+  function comparePenaltyNaturalText(a = '', b = '') {
+    return String(a || '').localeCompare(String(b || ''), 'vi', { numeric: true, sensitivity: 'base' });
+  }
+
+  function getPenaltySortableDateValue(value = '') {
+    const iso = toInputDateValue(value || '');
+    return iso || '9999-12-31';
+  }
+
+  function comparePenaltyBbNumbers(a = '', b = '') {
+    const left = String(a || '').trim();
+    const right = String(b || '').trim();
+    if (!left && !right) return 0;
+    if (!left) return 1;
+    if (!right) return -1;
+    return comparePenaltyNaturalText(left, right);
+  }
+
+  function sortPenaltyRecordsForView(rows = [], unitName = state.currentPenaltyUnit) {
+    const currentUnit = String(unitName || '').trim();
+    return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
+      if (currentUnit === 'Phòng PC07' || currentUnit === 'Admin') {
+        const dateDiff = getPenaltySortableDateValue(a?.bbDate).localeCompare(getPenaltySortableDateValue(b?.bbDate));
+        if (dateDiff !== 0) return dateDiff;
+        const bbDiff = comparePenaltyBbNumbers(a?.bbNumber, b?.bbNumber);
+        if (bbDiff !== 0) return bbDiff;
+        const unitDiff = comparePenaltyNaturalText(a?.sourceUnit || '', b?.sourceUnit || '');
+        if (unitDiff !== 0) return unitDiff;
+        return String(a?.createdAt || '').localeCompare(String(b?.createdAt || ''));
+      }
+      const bbDiff = comparePenaltyBbNumbers(a?.bbNumber, b?.bbNumber);
+      if (bbDiff !== 0) return bbDiff;
+      const dateDiff = getPenaltySortableDateValue(a?.bbDate).localeCompare(getPenaltySortableDateValue(b?.bbDate));
+      if (dateDiff !== 0) return dateDiff;
+      return String(a?.createdAt || '').localeCompare(String(b?.createdAt || ''));
+    });
+  }
+
   function getPenaltyRowsForUnit(unitName = state.currentPenaltyUnit) {
     const currentUnit = String(unitName || '').trim();
     if (!currentUnit) return [];
     if (currentUnit === 'Phòng PC07' || currentUnit === 'Admin') {
-      return getEditablePenaltyUnits()
-        .flatMap(name => (Array.isArray(state.penaltyRecordsByUnit?.[name]) ? state.penaltyRecordsByUnit[name] : []).map(item => ({ ...item, sourceUnit: name })))
-        .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+      const rows = getEditablePenaltyUnits()
+        .flatMap(name => (Array.isArray(state.penaltyRecordsByUnit?.[name]) ? state.penaltyRecordsByUnit[name] : []).map(item => ({ ...item, sourceUnit: name })));
+      return sortPenaltyRecordsForView(rows, currentUnit);
     }
-    return (Array.isArray(state.penaltyRecordsByUnit?.[currentUnit]) ? state.penaltyRecordsByUnit[currentUnit] : [])
+    const rows = (Array.isArray(state.penaltyRecordsByUnit?.[currentUnit]) ? state.penaltyRecordsByUnit[currentUnit] : [])
       .map(item => ({ ...item, sourceUnit: currentUnit }));
+    return sortPenaltyRecordsForView(rows, currentUnit);
   }
 
   function setPenaltyEntryStatus(type = 'info', message = '') {
