@@ -2257,6 +2257,7 @@
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
 
   const PENALTY_REMOTE_CACHE_TTL_MS = 10000;
+  const PENALTY_SYNC_META_CACHE_TTL_MS = 2500;
   const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
   const FACILITY_LIVE_SYNC_INTERVAL_MS = 5000;
   const PENALTY_LIVE_SYNC_INTERVAL_MS = 5000;
@@ -2264,6 +2265,8 @@
   const LIVE_SYNC_WRITE_GRACE_MS = 4000;
   const penaltyRemoteRecordsCache = new Map();
   const penaltyRemoteRecordsInflight = new Map();
+  const penaltySyncMetaCache = new Map();
+  const penaltySyncMetaInflight = new Map();
   let penaltyRemoteAccessCache = null;
   let penaltyRemoteAccessInflight = null;
 
@@ -2421,6 +2424,7 @@
     penaltyLastSyncByUnit: {},
     penaltyLastWriteAtByUnit: {},
     penaltyRemoteSignatures: {},
+    penaltySyncVersionsByUnit: {},
     penaltyAccessConfigsSyncPromise: null,
     penaltyAccessConfigVisible: false,
     appNavReady: false,
@@ -4852,7 +4856,7 @@
       return;
     }
     setStatus('info', 'Đang tải dữ liệu xử phạt từ hệ thống...');
-    const result = await refreshPenaltyRecordsFromRemote({ unitName: state.currentPenaltyUnit });
+    const result = await refreshPenaltyRecordsFromRemote({ unitName: state.currentPenaltyUnit, force: true, bypassCache: true });
     renderPenaltyTable();
     if (result && result.ok) {
       setStatus('success', 'Đã tải dữ liệu xử phạt mới nhất từ hệ thống.');
@@ -5200,6 +5204,70 @@
     penaltyRemoteRecordsInflight.delete('__ALL__');
   }
 
+  function getPenaltySyncMetaCacheKey(unitName = '') {
+    const normalizedUnit = String(unitName || '').trim();
+    return normalizedUnit || '__ALL__';
+  }
+
+  function getCachedPenaltySyncMeta(unitName = '') {
+    const key = getPenaltySyncMetaCacheKey(unitName);
+    const cached = penaltySyncMetaCache.get(key);
+    if (!cached) return null;
+    if ((Date.now() - Number(cached.ts || 0)) > PENALTY_SYNC_META_CACHE_TTL_MS) {
+      penaltySyncMetaCache.delete(key);
+      return null;
+    }
+    return clonePenaltyRemoteData(cached.data);
+  }
+
+  function setCachedPenaltySyncMeta(unitName = '', data = null) {
+    const key = getPenaltySyncMetaCacheKey(unitName);
+    penaltySyncMetaCache.set(key, { ts: Date.now(), data: clonePenaltyRemoteData(data) });
+  }
+
+  function invalidatePenaltySyncMetaCache(unitName = '') {
+    const key = getPenaltySyncMetaCacheKey(unitName);
+    penaltySyncMetaCache.delete(key);
+    penaltySyncMetaCache.delete('__ALL__');
+    penaltySyncMetaInflight.delete(key);
+    penaltySyncMetaInflight.delete('__ALL__');
+  }
+
+  async function getPenaltySyncMetaRemote(unitName = '', options = {}) {
+    const normalizedUnit = String(unitName || '').trim();
+    const force = !!options.force;
+    const cacheKey = getPenaltySyncMetaCacheKey(normalizedUnit);
+    if (!isPenaltyCloudReady()) {
+      return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
+    }
+    if (!force) {
+      const cached = getCachedPenaltySyncMeta(normalizedUnit);
+      if (cached) return { ...cached, cached: true };
+      if (penaltySyncMetaInflight.has(cacheKey)) return penaltySyncMetaInflight.get(cacheKey);
+    }
+    const request = (async () => {
+      try {
+        const params = new URLSearchParams({ action: 'getPenaltySyncMeta' });
+        if (normalizedUnit) params.set('unitName', normalizedUnit);
+        const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
+        const resp = await fetchWithTimeout(url, {}, 8000, 'Kiểm tra phiên bản dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
+        const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi kiểm tra phiên bản dữ liệu xử phạt.' }));
+        if (data && typeof data.ok !== 'undefined') {
+          if (data.ok) setCachedPenaltySyncMeta(normalizedUnit, data);
+          return data;
+        }
+        return { ok: false, error: 'Không nhận được phản hồi hợp lệ khi kiểm tra phiên bản dữ liệu xử phạt.' };
+      } catch (err) {
+        console.error('Không kiểm tra được phiên bản dữ liệu xử phạt từ Apps Script:', err);
+        return { ok: false, error: getFriendlyRequestError(err, 'Không kiểm tra được phiên bản dữ liệu xử phạt từ hệ thống') };
+      } finally {
+        penaltySyncMetaInflight.delete(cacheKey);
+      }
+    })();
+    penaltySyncMetaInflight.set(cacheKey, request);
+    return request;
+  }
+
   function getCachedPenaltyAccessResult() {
     if (!penaltyRemoteAccessCache) return null;
     if ((Date.now() - Number(penaltyRemoteAccessCache.ts || 0)) > PENALTY_ACCESS_REMOTE_CACHE_TTL_MS) {
@@ -5250,11 +5318,12 @@
   async function listPenaltyRecordsRemote(unitName = '', options = {}) {
     const normalizedUnit = String(unitName || '').trim();
     const force = !!options.force;
+    const bypassCache = !!options.bypassCache || force;
     const cacheKey = getPenaltyRecordCacheKey(normalizedUnit);
     if (!isPenaltyCloudReady()) {
       return { ok: false, localOnly: true, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
     }
-    if (!force) {
+    if (!force && !bypassCache) {
       const cached = getCachedPenaltyRecordResult(normalizedUnit);
       if (cached) return { ...cached, cached: true };
       if (penaltyRemoteRecordsInflight.has(cacheKey)) {
@@ -5265,6 +5334,7 @@
       try {
         const params = new URLSearchParams({ action: 'listPenaltyRecords' });
         if (normalizedUnit) params.set('unitName', normalizedUnit);
+        if (bypassCache) params.set('bypassCache', '1');
         const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
         const resp = await fetchWithTimeout(url, {}, 12000, 'Tải dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
         const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi dữ liệu xử phạt từ hệ thống.' }));
@@ -5305,12 +5375,20 @@
       if (data && typeof data.ok !== 'undefined') {
         if (data.ok) {
           invalidatePenaltyRecordRemoteCache(normalizedUnit);
+          invalidatePenaltySyncMetaCache(normalizedUnit);
           setCachedPenaltyRecordResult(normalizedUnit, {
             ok: true,
             unitName: normalizedUnit,
             items: Array.isArray(data.items) ? data.items : payloadRecords,
-            itemsByUnit: { [normalizedUnit]: Array.isArray(data.items) ? data.items : payloadRecords }
+            itemsByUnit: { [normalizedUnit]: Array.isArray(data.items) ? data.items : payloadRecords },
+            version: data.version || ''
           });
+          const syncKey = normalizedUnit || '__ALL__';
+          if (data.version) {
+            state.penaltySyncVersionsByUnit = state.penaltySyncVersionsByUnit || {};
+            state.penaltySyncVersionsByUnit[syncKey] = String(data.version || '');
+            state.penaltySyncVersionsByUnit.__ALL__ = String(data.version || '');
+          }
         }
         return data;
       }
@@ -5432,7 +5510,7 @@
     if (!isPenaltyCloudReady()) {
       return { ok: false, localOnly: true, itemsByUnit: state.penaltyRecordsByUnit, message: 'Chưa cấu hình Apps Script cho mục Thống kê xử phạt.' };
     }
-    const result = await listPenaltyRecordsRemote(unitName, { force: !!options.force });
+    const result = await listPenaltyRecordsRemote(unitName, { force: !!options.force, bypassCache: !!options.bypassCache || !!options.force });
     if (!result || !result.ok) return result || { ok: false, error: 'Không tải được dữ liệu xử phạt.' };
     const remoteMapRaw = result.itemsByUnit || result.recordsByUnit || {};
     const next = { ...(state.penaltyRecordsByUnit || {}) };
@@ -5451,9 +5529,14 @@
     const syncKey = unitName || '__ALL__';
     state.penaltyLastSyncByUnit = state.penaltyLastSyncByUnit || {};
     state.penaltyRemoteSignatures = state.penaltyRemoteSignatures || {};
+    state.penaltySyncVersionsByUnit = state.penaltySyncVersionsByUnit || {};
     state.penaltyLastSyncByUnit[syncKey] = Date.now();
     state.penaltyRemoteSignatures[syncKey] = buildPenaltySyncSignature(currentUnit || 'Phòng PC07', next);
-    return { ok: true, itemsByUnit: next, remote: true, signature: state.penaltyRemoteSignatures[syncKey] };
+    if (result.version) {
+      state.penaltySyncVersionsByUnit[syncKey] = String(result.version || '');
+      state.penaltySyncVersionsByUnit.__ALL__ = String(result.version || '');
+    }
+    return { ok: true, itemsByUnit: next, remote: true, signature: state.penaltyRemoteSignatures[syncKey], version: String(result.version || '') };
   }
 
   function delayPenaltyPersist(ms = 0) {
@@ -6619,6 +6702,7 @@
     if (!unitName) return { ok: false, skipped: true };
 
     const syncKey = unitName === 'Phòng PC07' || unitName === 'Admin' ? '__ALL__' : unitName;
+    const remoteUnitName = syncKey === '__ALL__' ? '' : unitName;
     const lastSyncAt = Number((state.penaltyLastSyncByUnit || {})[syncKey] || 0);
     if (!options.force && lastSyncAt && (Date.now() - lastSyncAt) < LIVE_SYNC_MIN_GAP_MS) {
       return { ok: true, skipped: true, throttled: true };
@@ -6630,9 +6714,22 @@
       return { ok: true, skipped: true, recentWrite: true };
     }
 
+    state.penaltySyncVersionsByUnit = state.penaltySyncVersionsByUnit || {};
+    const knownVersion = String(state.penaltySyncVersionsByUnit[syncKey] || '');
+    const meta = await getPenaltySyncMetaRemote(remoteUnitName, { force: !!options.force });
+    if (meta && meta.ok && meta.version && !options.force && knownVersion && String(meta.version) === knownVersion) {
+      state.penaltyLastSyncByUnit = state.penaltyLastSyncByUnit || {};
+      state.penaltyLastSyncByUnit[syncKey] = Date.now();
+      return { ok: true, skipped: true, unchanged: true, version: String(meta.version) };
+    }
+
     const beforeSignature = buildPenaltySyncSignature(unitName);
-    const result = await refreshPenaltyRecordsFromRemote({ unitName, force: true });
+    const result = await refreshPenaltyRecordsFromRemote({ unitName, force: true, bypassCache: true });
     if (!result || !result.ok) return result || { ok: false, error: 'Không tải được dữ liệu xử phạt từ hệ thống.' };
+    if (meta && meta.ok && meta.version) {
+      state.penaltySyncVersionsByUnit[syncKey] = String(meta.version || '');
+      state.penaltySyncVersionsByUnit.__ALL__ = String(meta.version || '');
+    }
     if (!isPanelVisible('penaltyPanel') || String(state.currentPenaltyUnit || '').trim() !== unitName) {
       return { ...result, skipped: true };
     }
@@ -6643,7 +6740,7 @@
       renderPenaltyTable();
       setStatus('success', 'Đã tự đồng bộ dữ liệu xử phạt mới nhất từ hệ thống.');
     }
-    return { ...result, changed };
+    return { ...result, changed, version: String((meta && meta.version) || result.version || '') };
   }
 
   async function runLiveSync(options = {}) {
