@@ -2257,12 +2257,12 @@
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
 
   const PENALTY_REMOTE_CACHE_TTL_MS = 4000;
-  const PENALTY_SYNC_META_CACHE_TTL_MS = 2500;
+  const PENALTY_SYNC_META_CACHE_TTL_MS = 600;
   const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
   const FACILITY_LIVE_SYNC_INTERVAL_MS = 5000;
-  const PENALTY_LIVE_SYNC_INTERVAL_MS = 2500;
-  const LIVE_SYNC_MIN_GAP_MS = 1200;
-  const LIVE_SYNC_WRITE_GRACE_MS = 4000;
+  const PENALTY_LIVE_SYNC_INTERVAL_MS = 1500;
+  const LIVE_SYNC_MIN_GAP_MS = 700;
+  const LIVE_SYNC_WRITE_GRACE_MS = 2500;
   const penaltyRemoteRecordsCache = new Map();
   const penaltyRemoteRecordsInflight = new Map();
   const penaltySyncMetaCache = new Map();
