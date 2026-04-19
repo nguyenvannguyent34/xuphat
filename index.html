@@ -2179,7 +2179,7 @@
 <script>
 (() => {
   // Dán link Web App Apps Script dạng /exec vào dòng dưới để cả đội cùng xem chung dữ liệu.
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwps5Y3tID3-_gwmHbeYgFGbo8_pMZC4-vvGiuMl53gIjtnzv7mjg-LA2fWxi4sU7GJvA/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjFZcVqhOK7PtgfVbnAfQjelzWaCvyQtc-70o6V3ycwdlSs4bH9x18qwplou_Bmh4n/exec";
   const ENABLE_LEGACY_REMOTE_MODULES = false;
   const VIEWER_PASSWORD = "101212019";
   const ADMIN_PASSWORD = "101212019";
@@ -2257,12 +2257,12 @@
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
 
   const PENALTY_REMOTE_CACHE_TTL_MS = 3000;
-  const PENALTY_SYNC_META_CACHE_TTL_MS = 500;
+  const PENALTY_SYNC_META_CACHE_TTL_MS = 0;
   const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
   const FACILITY_LIVE_SYNC_INTERVAL_MS = 5000;
-  const PENALTY_LIVE_SYNC_INTERVAL_MS = 1500;
-  const LIVE_SYNC_MIN_GAP_MS = 700;
-  const LIVE_SYNC_WRITE_GRACE_MS = 2500;
+  const PENALTY_LIVE_SYNC_INTERVAL_MS = 600;
+  const LIVE_SYNC_MIN_GAP_MS = 250;
+  const LIVE_SYNC_WRITE_GRACE_MS = 900;
   const penaltyRemoteRecordsCache = new Map();
   const penaltyRemoteRecordsInflight = new Map();
   const penaltySyncMetaCache = new Map();
@@ -2538,25 +2538,13 @@
   }
 
   function loadPenaltyAccessConfigs() {
-    try {
-      const raw = localStorage.getItem(PENALTY_ACCESS_CONFIG_STORAGE_KEY);
-      if (!raw) return normalizePenaltyAccessConfigs();
-      return normalizePenaltyAccessConfigs(JSON.parse(raw));
-    } catch (err) {
-      console.warn('Không đọc được cấu hình mật khẩu truy cập các thẻ:', err);
-      return normalizePenaltyAccessConfigs();
-    }
+    return normalizePenaltyAccessConfigs(state.penaltyAccessConfigs || {});
   }
 
   function savePenaltyAccessConfigs(configs) {
     const normalized = normalizePenaltyAccessConfigs(configs);
     state.penaltyAccessConfigs = normalized;
     state.penaltyAccessConfigsLoadedAt = Date.now();
-    try {
-      localStorage.setItem(PENALTY_ACCESS_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
-    } catch (err) {
-      console.warn('Không lưu được cấu hình mật khẩu truy cập các thẻ:', err);
-    }
     return normalized;
   }
 
@@ -3081,25 +3069,13 @@
   }
 
   function loadManagerPasswordConfigs() {
-    try {
-      const raw = localStorage.getItem(MANAGER_PASSWORD_CONFIG_STORAGE_KEY);
-      if (!raw) return normalizeManagerPasswordConfigs();
-      return normalizeManagerPasswordConfigs(JSON.parse(raw));
-    } catch (err) {
-      console.warn('Không đọc được bộ nhớ đệm cấu hình mật khẩu cá nhân:', err);
-      return normalizeManagerPasswordConfigs();
-    }
+    return normalizeManagerPasswordConfigs(state.managerPasswordConfigs || {});
   }
 
   function saveManagerPasswordConfigs(configs) {
     const normalized = normalizeManagerPasswordConfigs(configs);
     state.managerPasswordConfigs = normalized;
     state.managerPasswordConfigsLoadedAt = Date.now();
-    try {
-      localStorage.setItem(MANAGER_PASSWORD_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
-    } catch (err) {
-      console.warn('Không lưu được bộ nhớ đệm cấu hình mật khẩu cá nhân:', err);
-    }
     return normalized;
   }
 
@@ -4880,6 +4856,7 @@
     renderPenaltyTable();
     if (result && result.ok) {
       setStatus('success', 'Đã tải dữ liệu xử phạt mới nhất từ hệ thống.');
+      window.setTimeout(() => { void maybeAutoSyncPenaltyView({ force: true }); }, 250);
     } else {
       setStatus('warning', (result && (result.error || result.message)) || 'Không tải được dữ liệu xử phạt từ hệ thống. Đang dùng dữ liệu cục bộ.');
     }
@@ -5083,23 +5060,11 @@
   }
 
   function readLocalTasks() {
-    try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(normalizeTask).filter(task => task.title) : [];
-    } catch (err) {
-      console.warn("Không đọc được dữ liệu cục bộ:", err);
-      return [];
-    }
+    return Array.isArray(state.tasks) ? state.tasks.map(normalizeTask).filter(task => task.title) : [];
   }
 
   function saveLocalTasks(tasks) {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
-    } catch (err) {
-      console.warn("Không lưu được dữ liệu cục bộ:", err);
-    }
+    state.tasks = Array.isArray(tasks) ? tasks.map(normalizeTask).filter(task => task.title) : [];
   }
 
   function normalizePenaltyRecord(raw = {}) {
@@ -5157,29 +5122,23 @@
   }
 
   function readLocalPenaltyRecords() {
-    try {
-      const raw = localStorage.getItem(PENALTY_LOCAL_STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-      const next = {};
-      Object.keys(parsed).forEach(unitName => {
-        const rows = Array.isArray(parsed[unitName]) ? parsed[unitName].map(normalizePenaltyRecord).filter(item => item.facilityName) : [];
-        next[unitName] = rows;
-      });
-      return next;
-    } catch (err) {
-      console.warn('Không đọc được dữ liệu xử phạt cục bộ:', err);
-      return {};
-    }
+    const parsed = state.penaltyRecordsByUnit;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const next = {};
+    Object.keys(parsed).forEach(unitName => {
+      const rows = Array.isArray(parsed[unitName]) ? parsed[unitName].map(normalizePenaltyRecord).filter(item => item.facilityName) : [];
+      next[unitName] = rows;
+    });
+    return next;
   }
 
   function saveLocalPenaltyRecords(recordsByUnit) {
-    try {
-      localStorage.setItem(PENALTY_LOCAL_STORAGE_KEY, JSON.stringify(recordsByUnit || {}));
-    } catch (err) {
-      console.warn('Không lưu được dữ liệu xử phạt cục bộ:', err);
-    }
+    const source = recordsByUnit && typeof recordsByUnit === 'object' ? recordsByUnit : {};
+    const next = {};
+    Object.keys(source).forEach(unitName => {
+      next[unitName] = Array.isArray(source[unitName]) ? source[unitName].map(normalizePenaltyRecord).filter(item => item.facilityName) : [];
+    });
+    state.penaltyRecordsByUnit = next;
   }
 
   function isPenaltyCloudReady() {
@@ -6535,27 +6494,18 @@
     if (isTeamFacilityView(managerName)) {
       return sortFacilities(getIndividualFacilityManagers().flatMap(name => loadLocalFacilities(name)));
     }
-    try {
-      const raw = localStorage.getItem(getFacilityStorageKey(managerName));
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed)
-        ? sortFacilities(parsed.map(item => normalizeFacility({ ...item, owner: item?.owner || managerName })).filter(item => item.name))
-        : [];
-    } catch (err) {
-      console.warn('Không đọc được dữ liệu cơ sở cục bộ:', err);
-      return [];
-    }
+    const grouped = state.facilitiesByOwner && typeof state.facilitiesByOwner === 'object' ? state.facilitiesByOwner : {};
+    const parsed = grouped[managerName];
+    return Array.isArray(parsed)
+      ? sortFacilities(parsed.map(item => normalizeFacility({ ...item, owner: item?.owner || managerName })).filter(item => item.name))
+      : [];
   }
 
   function saveLocalFacilities(items, managerName = getCurrentFacilityManager()) {
     if (isTeamFacilityView(managerName)) return;
-    try {
-      const normalized = sortFacilities((Array.isArray(items) ? items : []).map(item => normalizeFacility({ ...item, owner: managerName })));
-      localStorage.setItem(getFacilityStorageKey(managerName), JSON.stringify(normalized));
-    } catch (err) {
-      console.warn('Không lưu được dữ liệu cơ sở cục bộ:', err);
-    }
+    const normalized = sortFacilities((Array.isArray(items) ? items : []).map(item => normalizeFacility({ ...item, owner: managerName })));
+    state.facilitiesByOwner = state.facilitiesByOwner && typeof state.facilitiesByOwner === 'object' ? state.facilitiesByOwner : {};
+    state.facilitiesByOwner[managerName] = normalized;
   }
 
   const facilityRemoteRequests = new Map();
@@ -10025,8 +9975,11 @@ th{font-weight:700;background:#f1f1f1}
     void ensureManagerPasswordConfigsReady({ force: true, background: true, maxAgeMs: 0 });
   }, 10000);
   window.setInterval(() => {
-    void runLiveSync();
-  }, Math.min(FACILITY_LIVE_SYNC_INTERVAL_MS, PENALTY_LIVE_SYNC_INTERVAL_MS));
+    void maybeAutoSyncFacilityView();
+  }, FACILITY_LIVE_SYNC_INTERVAL_MS);
+  window.setInterval(() => {
+    void maybeAutoSyncPenaltyView();
+  }, PENALTY_LIVE_SYNC_INTERVAL_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (isFacilityCloudReady()) {
