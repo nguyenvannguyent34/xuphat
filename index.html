@@ -2910,7 +2910,12 @@
     if (isAbortLikeError(error)) {
       return 'Hệ thống phản hồi chậm hơn dự kiến. Vui lòng thử lại.';
     }
-    return error?.message || fallbackMessage;
+    const message = String(error?.message || '').trim();
+    if (!message) return fallbackMessage;
+    if (/failed to fetch/i.test(message)) {
+      return 'Không kết nối được tới Apps Script. Hãy kiểm tra lại link SCRIPT_URL, quyền truy cập Web App (Anyone), rồi deploy lại phiên bản mới nhất.';
+    }
+    return message || fallbackMessage;
   }
 
   function buildNoStoreUrl(url) {
@@ -2957,7 +2962,8 @@
     try {
       const method = String(fetchOptions.method || 'GET').toUpperCase();
       const requestUrl = method === 'GET' ? buildNoStoreUrl(url) : url;
-      return await fetch(requestUrl, { ...fetchOptions, cache: 'no-store', signal: controller.signal, headers: { 'Cache-Control': 'no-cache, no-store, max-age=0', Pragma: 'no-cache', ...(fetchOptions.headers || {}) } });
+      const headers = { ...(fetchOptions.headers || {}) };
+      return await fetch(requestUrl, { ...fetchOptions, cache: 'no-store', signal: controller.signal, headers });
     } catch (error) {
       if (isAbortLikeError(error)) {
         throw new Error(timeoutMessage);
