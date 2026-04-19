@@ -2256,12 +2256,12 @@
   const DESCRIPTION_IMAGE_PREFIX = "__TASKDESCIMG__";
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
 
-  const PENALTY_REMOTE_CACHE_TTL_MS = 10000;
+  const PENALTY_REMOTE_CACHE_TTL_MS = 4000;
   const PENALTY_SYNC_META_CACHE_TTL_MS = 2500;
   const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
   const FACILITY_LIVE_SYNC_INTERVAL_MS = 5000;
-  const PENALTY_LIVE_SYNC_INTERVAL_MS = 5000;
-  const LIVE_SYNC_MIN_GAP_MS = 2000;
+  const PENALTY_LIVE_SYNC_INTERVAL_MS = 2500;
+  const LIVE_SYNC_MIN_GAP_MS = 1200;
   const LIVE_SYNC_WRITE_GRACE_MS = 4000;
   const penaltyRemoteRecordsCache = new Map();
   const penaltyRemoteRecordsInflight = new Map();
@@ -2913,6 +2913,18 @@
     return error?.message || fallbackMessage;
   }
 
+  function buildNoStoreUrl(url) {
+    try {
+      const next = new URL(url, window.location.href);
+      next.searchParams.set('_ts', String(Date.now()));
+      next.searchParams.set('_r', Math.random().toString(36).slice(2, 8));
+      return next.toString();
+    } catch (_) {
+      const joiner = String(url || '').includes('?') ? '&' : '?';
+      return `${url}${joiner}_ts=${Date.now()}&_r=${Math.random().toString(36).slice(2, 8)}`;
+    }
+  }
+
   async function fetchWithTimeout(url, options = {}, timeoutMs = 7000, timeoutMessage = 'Yêu cầu xử lý quá lâu.') {
     const controller = new AbortController();
     const { signal: externalSignal, ...fetchOptions } = options || {};
@@ -2943,7 +2955,9 @@
     }, timeoutMs);
 
     try {
-      return await fetch(url, { ...fetchOptions, signal: controller.signal });
+      const method = String(fetchOptions.method || 'GET').toUpperCase();
+      const requestUrl = method === 'GET' ? buildNoStoreUrl(url) : url;
+      return await fetch(requestUrl, { ...fetchOptions, cache: 'no-store', signal: controller.signal, headers: { 'Cache-Control': 'no-cache, no-store, max-age=0', Pragma: 'no-cache', ...(fetchOptions.headers || {}) } });
     } catch (error) {
       if (isAbortLikeError(error)) {
         throw new Error(timeoutMessage);
