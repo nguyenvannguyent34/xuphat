@@ -2186,7 +2186,7 @@
   const LOCAL_STORAGE_KEY = "pc07_team_tasks_v1";
   const MANAGER_PASSWORD_CONFIG_STORAGE_KEY = "pc07_manager_password_configs_v1";
   const FACILITY_LOCAL_STORAGE_PREFIX = "pc07_facility_manager_v2";
-  const PENALTY_LOCAL_STORAGE_KEY = "pc07_penalty_records_v1";
+  const PENALTY_LOCAL_STORAGE_KEY = "pc07_penalty_records_single_sheet_v2";
   const HOME_HERO_TITLE = "Xử phạt vi phạm hành chính về PCCC và CNCH";
   const PENALTY_HERO_TITLE = "Thống kê kết quả xử phạt vi phạm hành chính trong lĩnh vực PCCC và CNCH";
   const LOOKUP_HERO_TITLE = "Tra cứu vi phạm hành chính về PCCC và CNCH";
@@ -2256,8 +2256,8 @@
   const DESCRIPTION_IMAGE_PREFIX = "__TASKDESCIMG__";
   const NOTE_ATTACHMENT_PREFIX = "__TASKNOTEFILE__";
 
-  const PENALTY_REMOTE_CACHE_TTL_MS = 4000;
-  const PENALTY_SYNC_META_CACHE_TTL_MS = 600;
+  const PENALTY_REMOTE_CACHE_TTL_MS = 3000;
+  const PENALTY_SYNC_META_CACHE_TTL_MS = 500;
   const PENALTY_ACCESS_REMOTE_CACHE_TTL_MS = 15000;
   const FACILITY_LIVE_SYNC_INTERVAL_MS = 5000;
   const PENALTY_LIVE_SYNC_INTERVAL_MS = 1500;
@@ -5263,8 +5263,9 @@
       try {
         const params = new URLSearchParams({ action: 'getPenaltySyncMeta' });
         if (normalizedUnit) params.set('unitName', normalizedUnit);
+        params.set('_ts', String(Date.now()));
         const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
-        const resp = await fetchWithTimeout(url, {}, 8000, 'Kiểm tra phiên bản dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
+        const resp = await fetchWithTimeout(url, { cache: 'no-store' }, 8000, 'Kiểm tra phiên bản dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
         const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi kiểm tra phiên bản dữ liệu xử phạt.' }));
         if (data && typeof data.ok !== 'undefined') {
           if (data.ok) setCachedPenaltySyncMeta(normalizedUnit, data);
@@ -5349,8 +5350,9 @@
         const params = new URLSearchParams({ action: 'listPenaltyRecords' });
         if (normalizedUnit) params.set('unitName', normalizedUnit);
         if (bypassCache) params.set('bypassCache', '1');
+        params.set('_ts', String(Date.now()));
         const url = SCRIPT_URL + (SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
-        const resp = await fetchWithTimeout(url, {}, 12000, 'Tải dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
+        const resp = await fetchWithTimeout(url, { cache: 'no-store' }, 12000, 'Tải dữ liệu xử phạt quá lâu. Vui lòng thử lại.');
         const data = await resp.json().catch(() => ({ ok: false, error: 'Không đọc được phản hồi dữ liệu xử phạt từ hệ thống.' }));
         if (data && typeof data.ok !== 'undefined') {
           if (data.ok) setCachedPenaltyRecordResult(normalizedUnit, data);
