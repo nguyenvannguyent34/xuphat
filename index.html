@@ -267,6 +267,9 @@
       border:1px solid #e1e7f0;
       border-radius:16px;
       background:#fff;
+      position:relative;
+      --penalty-head-row1-height:56px;
+      --penalty-head-row2-height:44px;
     }
     .penalty-table{
       width:max-content;
@@ -288,6 +291,24 @@
       background:#f8fafc;
       font-weight:700;
       white-space:normal;
+    }
+    .penalty-table thead tr:nth-child(1) th{
+      position:sticky;
+      top:0;
+      z-index:8;
+      box-shadow:0 1px 0 #e6ebf3;
+    }
+    .penalty-table thead tr:nth-child(2) th{
+      position:sticky;
+      top:var(--penalty-head-row1-height);
+      z-index:8;
+      box-shadow:0 1px 0 #e6ebf3;
+    }
+    .penalty-table thead tr.penalty-filter-row th{
+      position:sticky;
+      top:calc(var(--penalty-head-row1-height) + var(--penalty-head-row2-height));
+      z-index:9;
+      box-shadow:0 2px 0 #e6ebf3;
     }
     .penalty-filter-row th{
       background:#fffdf6;
@@ -425,9 +446,25 @@
     .penalty-row-start td{
       border-top:2px solid #d8a6a6;
     }
+    .penalty-row-tone-white td{
+      background:#ffffff;
+    }
+    .penalty-row-tone-orange td{
+      background:#fff3e0;
+    }
+    .penalty-row-tone-orange .penalty-cell-editor,
+    .penalty-row-tone-orange .penalty-cell-editor-select{
+      background:#ffffff;
+    }
     .penalty-shared-cell{
       background:#fffdfd;
       vertical-align:middle;
+    }
+    .penalty-shared-cell.penalty-row-tone-white{
+      background:#ffffff;
+    }
+    .penalty-shared-cell.penalty-row-tone-orange{
+      background:#fff3e0;
     }
     .penalty-col-stt{min-width:54px;width:54px;}
     .penalty-col-name{min-width:170px;width:170px;}
@@ -2094,29 +2131,11 @@
 </div>
 <div class="penalty-report-grid">
 <div class="panel-box">
-<h3>Phân tích theo Đối tượng</h3>
+<h3 id="penaltyReportDynamicHeading">Phân tích theo Đơn vị</h3>
 <div class="table-wrap">
 <table class="report-table">
 <thead><tr><th>STT</th><th>Nội dung</th><th>Số lượng</th><th>Tỷ lệ</th><th>Mức độ</th></tr></thead>
-<tbody id="penaltyReportObjectBody"></tbody>
-</table>
-</div>
-</div>
-<div class="panel-box">
-<h3>Phân tích theo Địa bàn</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th>STT</th><th>Nội dung</th><th>Số lượng</th><th>Tỷ lệ</th><th>Mức độ</th></tr></thead>
-<tbody id="penaltyReportAddressBody"></tbody>
-</table>
-</div>
-</div>
-<div class="panel-box">
-<h3>Phân tích theo Điều</h3>
-<div class="table-wrap">
-<table class="report-table">
-<thead><tr><th>STT</th><th>Nội dung</th><th>Số lượng</th><th>Tỷ lệ</th><th>Mức độ</th></tr></thead>
-<tbody id="penaltyReportArticleBody"></tbody>
+<tbody id="penaltyReportUnitBody"></tbody>
 </table>
 </div>
 </div>
@@ -2130,11 +2149,20 @@
 </div>
 </div>
 <div class="panel-box">
-<h3 id="penaltyReportDynamicHeading">Phân tích theo Đơn vị</h3>
+<h3>Phân tích theo Đối tượng</h3>
 <div class="table-wrap">
 <table class="report-table">
 <thead><tr><th>STT</th><th>Nội dung</th><th>Số lượng</th><th>Tỷ lệ</th><th>Mức độ</th></tr></thead>
-<tbody id="penaltyReportUnitBody"></tbody>
+<tbody id="penaltyReportObjectBody"></tbody>
+</table>
+</div>
+</div>
+<div class="panel-box">
+<h3>Phân tích theo Điều</h3>
+<div class="table-wrap">
+<table class="report-table">
+<thead><tr><th>STT</th><th>Nội dung</th><th>Số lượng</th><th>Tỷ lệ</th><th>Mức độ</th></tr></thead>
+<tbody id="penaltyReportArticleBody"></tbody>
 </table>
 </div>
 </div>
@@ -4635,6 +4663,17 @@
     }
   }
 
+  function updatePenaltyTableStickyOffsets() {
+    const wrap = document.querySelector('.penalty-table-wrap');
+    const table = wrap ? wrap.querySelector('.penalty-table') : null;
+    const headRows = table ? table.querySelectorAll('thead tr') : [];
+    if (!wrap || headRows.length < 3) return;
+    const row1Height = Math.max(0, Math.ceil(headRows[0].getBoundingClientRect().height || headRows[0].offsetHeight || 0));
+    const row2Height = Math.max(0, Math.ceil(headRows[1].getBoundingClientRect().height || headRows[1].offsetHeight || 0));
+    if (row1Height) wrap.style.setProperty('--penalty-head-row1-height', row1Height + 'px');
+    if (row2Height) wrap.style.setProperty('--penalty-head-row2-height', row2Height + 'px');
+  }
+
   function renderPenaltyTable() {
     const body = $('penaltyTableBody');
     if (!body) return;
@@ -4653,49 +4692,54 @@
         ? 'Chưa có dữ liệu xử phạt tổng hợp từ các đội.'
         : `Chưa có dữ liệu xử phạt của ${escapeHtml(unitName || 'đơn vị')}.`;
       body.innerHTML = `<tr><td colspan="${totalColumns}"><div class="empty-state">${emptyLabel}</div></td></tr>`;
+      updatePenaltyTableStickyOffsets();
       return;
     }
     if (!filteredRows.length) {
       body.innerHTML = `<tr><td colspan="${totalColumns}"><div class="empty-state">Không có dữ liệu phù hợp với điều kiện lọc hiện tại.</div></td></tr>`;
+      updatePenaltyTableStickyOffsets();
       return;
     }
     const filters = getPenaltyFilterState();
     let stt = 0;
     body.innerHTML = filteredRows.map((item) => {
       stt += 1;
+      const rowToneClass = stt % 2 === 0 ? 'penalty-row-tone-orange' : 'penalty-row-tone-white';
       const visibleViolations = getPenaltyFilteredViolations(item, filters);
       const rowCount = Math.max(visibleViolations.length, 1);
       const editableClass = allowEditing ? ' penalty-editable-cell' : '';
       const facilityTitle = allowEditing ? 'Double click để mở hộp thoại sửa' : '';
       const cellTitle = allowEditing ? 'Double click để sửa ô này' : '';
       const dateCellTitle = allowEditing ? 'Double click để chọn ngày' : '';
-      const modalCellTitle = allowEditing ? 'Double click để mở hộp thoại sửa' : '';
       const authorityLabel = collectPenaltyAuthorities(visibleViolations) || String(item.authority || '').trim();
-      const unitCell = showUnitColumn ? `<td class="penalty-unit-col penalty-shared-cell" rowspan="${rowCount}">${escapeHtml(item.sourceUnit || '')}</td>` : '';
-      const officerCell = showOfficerColumn ? `<td class="penalty-officer-col penalty-shared-cell${editableClass}" data-field="officer" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.officer || '')}</td>` : '';
+      const unitCell = showUnitColumn ? `<td class="penalty-unit-col penalty-shared-cell ${rowToneClass}" rowspan="${rowCount}">${escapeHtml(item.sourceUnit || '')}</td>` : '';
+      const officerCell = showOfficerColumn ? `<td class="penalty-officer-col penalty-shared-cell ${rowToneClass}${editableClass}" data-field="officer" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.officer || '')}</td>` : '';
       return visibleViolations.map((violation, violationRowIndex) => {
         const isFirst = violationRowIndex === 0;
+        const rowClass = `${rowToneClass}${rowCount > 1 && isFirst ? ' penalty-row-start' : ''}`;
+        const violationCellClass = allowEditing ? 'penalty-editable-cell' : '';
         return `
-        <tr data-id="${escapeHtml(item.id || '')}"${rowCount > 1 && isFirst ? ' class="penalty-row-start"' : ''}>
-          ${isFirst ? `<td class="penalty-shared-cell" rowspan="${rowCount}">${stt}</td>` : ''}
-          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell${editableClass}" data-field="facilityName" title="${facilityTitle}" rowspan="${rowCount}">${escapeHtml(item.facilityName || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell${editableClass}" data-field="address" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.address || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell${editableClass}" data-field="violationObject" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.violationObject || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="bbNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.bbNumber || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="bbDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.bbDate || ''))}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="qdNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.qdNumber || '')}</td>` : ''}
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="qdDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.qdDate || ''))}</td>` : ''}
-          <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="point" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.point || '')}</td>
-          <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="clause" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.clause || '')}</td>
-          <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="article" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.article || '')}</td>
-          <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="decree" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.decree || '')}</td>
-          <td class="${allowEditing ? 'penalty-editable-cell' : ''}" data-field="fineAmount" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.fineAmount ? formatPenaltyCurrency(getPenaltyViolationMoneyNumber(violation)) : '')}</td>
-          ${isFirst ? `<td class="penalty-shared-cell${editableClass}" data-field="authority" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(authorityLabel)}</td>` : ''}
+        <tr data-id="${escapeHtml(item.id || '')}" class="${rowClass}">
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}" rowspan="${rowCount}">${stt}</td>` : ''}
+          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell ${rowToneClass}${editableClass}" data-field="facilityName" title="${facilityTitle}" rowspan="${rowCount}">${escapeHtml(item.facilityName || '')}</td>` : ''}
+          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell ${rowToneClass}${editableClass}" data-field="address" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.address || '')}</td>` : ''}
+          ${isFirst ? `<td class="penalty-text-left penalty-shared-cell ${rowToneClass}${editableClass}" data-field="violationObject" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.violationObject || '')}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}${editableClass}" data-field="bbNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.bbNumber || '')}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}${editableClass}" data-field="bbDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.bbDate || ''))}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}${editableClass}" data-field="qdNumber" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(item.qdNumber || '')}</td>` : ''}
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}${editableClass}" data-field="qdDate" title="${dateCellTitle}" rowspan="${rowCount}">${escapeHtml(formatDate(item.qdDate || ''))}</td>` : ''}
+          <td class="${violationCellClass}" data-field="point" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.point || '')}</td>
+          <td class="${violationCellClass}" data-field="clause" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.clause || '')}</td>
+          <td class="${violationCellClass}" data-field="article" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.article || '')}</td>
+          <td class="${violationCellClass}" data-field="decree" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.decree || '')}</td>
+          <td class="${violationCellClass}" data-field="fineAmount" data-violation-index="${violation.__index}" title="${cellTitle}">${escapeHtml(violation.fineAmount ? formatPenaltyCurrency(getPenaltyViolationMoneyNumber(violation)) : '')}</td>
+          ${isFirst ? `<td class="penalty-shared-cell ${rowToneClass}${editableClass}" data-field="authority" title="${cellTitle}" rowspan="${rowCount}">${escapeHtml(authorityLabel)}</td>` : ''}
           ${isFirst ? unitCell : ''}
           ${isFirst ? officerCell : ''}
         </tr>`;
       }).join('');
     }).join('');
+    updatePenaltyTableStickyOffsets();
   }
 
   function getPenaltyExportHeaders(unitName = state.currentPenaltyUnit) {
@@ -5654,12 +5698,46 @@
     return target === 'edit' ? 'penaltyEditOfficerSuggestions' : 'penaltyOfficerSuggestions';
   }
 
+  function bindPenaltyOfficerFieldEvents(field) {
+    if (!field || field.dataset.penaltyOfficerBound === '1') return field;
+    field.addEventListener('change', handlePenaltyOfficerSelectChange);
+    field.addEventListener('input', handlePenaltyOfficerSelectChange);
+    if (field.id === 'penaltyOfficer') {
+      field.addEventListener('keydown', (event) => handleEnterToSave(event, handleSavePenaltyEntry));
+    } else if (field.id === 'penaltyEditOfficer') {
+      field.addEventListener('keydown', (event) => handleEnterToSave(event, handleSavePenaltyModal, { onEscape: () => goAppBack(closePenaltyEditModal) }));
+    }
+    field.dataset.penaltyOfficerBound = '1';
+    return field;
+  }
+
+  function ensurePenaltyOfficerFieldMode(selectOrId, useSelect = false) {
+    const currentField = typeof selectOrId === 'string' ? $(selectOrId) : selectOrId;
+    if (!currentField) return null;
+    const shouldBeSelect = !!useSelect;
+    const currentIsSelect = currentField.tagName === 'SELECT';
+    if (shouldBeSelect === currentIsSelect) return bindPenaltyOfficerFieldEvents(currentField);
+
+    const replacement = document.createElement(shouldBeSelect ? 'select' : 'input');
+    replacement.id = currentField.id;
+    replacement.className = currentField.className;
+    replacement.dataset.unitName = currentField.dataset.unitName || '';
+    replacement.value = String(currentField.value || '').trim();
+    if (!shouldBeSelect) {
+      replacement.type = 'text';
+      replacement.autocomplete = 'off';
+      replacement.placeholder = 'Nhập người tham mưu...';
+    }
+    currentField.replaceWith(replacement);
+    return bindPenaltyOfficerFieldEvents(replacement);
+  }
+
   function renderPenaltyOfficerSelect(selectOrId, unitName = '', options = {}) {
     const { value = '', includeBlank = true, blankLabel = 'Chọn người tham mưu...', target = 'entry' } = options;
-    const field = typeof selectOrId === 'string' ? $(selectOrId) : selectOrId;
+    const presetMode = isPenaltyOfficerPresetUnit(unitName);
+    const field = ensurePenaltyOfficerFieldMode(selectOrId, presetMode);
     if (!field) return [];
     const normalizedValue = String(value || '').trim();
-    const presetMode = isPenaltyOfficerPresetUnit(unitName);
     const values = getPenaltyOfficerOptions(unitName);
     field.dataset.unitName = String(unitName || '').trim();
 
@@ -9931,9 +10009,7 @@ th{font-weight:700;background:#f1f1f1}
     if ($(id)) configureCalendarOnlyInput($(id));
   });
   ['penaltyOfficer', 'penaltyEditOfficer'].forEach(id => {
-    if (!$(id)) return;
-    $(id).addEventListener('change', handlePenaltyOfficerSelectChange);
-    $(id).addEventListener('input', handlePenaltyOfficerSelectChange);
+    bindPenaltyOfficerFieldEvents($(id));
   });
   ["editTaskTitle", "editTaskAssignee", "editTaskAssignedWeek", "editTaskDueDate", "editTaskStatus", "editTaskDescription", "editTaskNote", "editTaskNoteFile"].forEach(id => {
     $(id).addEventListener("keydown", (event) => handleEnterToSave(event, handleSaveEditedTask, { onEscape: () => goAppBack(closeEditTaskModal) }));
@@ -10024,7 +10100,11 @@ th{font-weight:700;background:#f1f1f1}
     void runLiveSync({ force: true });
   });
 
-  window.addEventListener('resize', adjustFacilityTableLayout);
+  window.addEventListener('resize', () => {
+    adjustFacilityTableLayout();
+    updatePenaltyTableStickyOffsets();
+  });
+  window.setTimeout(updatePenaltyTableStickyOffsets, 0);
 })();
 </script>
 </body>
