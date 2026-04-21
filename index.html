@@ -270,11 +270,12 @@
       position:relative;
       --penalty-head-row1-height:56px;
       --penalty-head-row2-height:44px;
+      --penalty-ui-scale:1;
     }
     .penalty-table{
-      width:max-content;
-      min-width:max-content;
-      table-layout:auto;
+      width:max(100%, calc(1630px * var(--penalty-ui-scale)));
+      min-width:max(100%, calc(1630px * var(--penalty-ui-scale)));
+      table-layout:fixed;
       border-collapse:collapse;
       background:#fff;
     }
@@ -282,10 +283,10 @@
     .penalty-table td{
       text-align:center;
       vertical-align:middle;
-      padding:10px 8px;
+      padding:calc(10px * var(--penalty-ui-scale)) calc(8px * var(--penalty-ui-scale));
       border:1px solid #e6ebf3;
-      font-size:15px;
-      line-height:1.4;
+      font-size:max(10px, calc(15px * var(--penalty-ui-scale)));
+      line-height:1.35;
     }
     .penalty-table thead th{
       background:#f8fafc;
@@ -318,10 +319,10 @@
     .penalty-filter-row select{
       width:100%;
       min-width:0;
-      padding:8px 10px;
+      padding:calc(8px * var(--penalty-ui-scale)) calc(10px * var(--penalty-ui-scale));
       border:1px solid #d7deea;
-      border-radius:10px;
-      font-size:14px;
+      border-radius:max(8px, calc(10px * var(--penalty-ui-scale)));
+      font-size:max(10px, calc(14px * var(--penalty-ui-scale)));
       background:#fff;
       text-align:center;
     }
@@ -331,9 +332,9 @@
     .penalty-filter-row .penalty-filter-clear-btn{
       width:100%;
       min-width:0;
-      padding:8px 10px;
-      border-radius:10px;
-      font-size:14px;
+      padding:calc(8px * var(--penalty-ui-scale)) calc(10px * var(--penalty-ui-scale));
+      border-radius:max(8px, calc(10px * var(--penalty-ui-scale)));
+      font-size:max(10px, calc(14px * var(--penalty-ui-scale)));
       white-space:nowrap;
     }
     .penalty-table td.penalty-text-left{
@@ -466,10 +467,10 @@
     .penalty-shared-cell.penalty-row-tone-orange{
       background:#fff3e0;
     }
-    .penalty-col-stt{min-width:54px;width:54px;}
-    .penalty-col-name{min-width:170px;width:170px;}
-    .penalty-col-address{min-width:170px;width:170px;}
-    .penalty-col-object{min-width:86px;width:86px;}
+    .penalty-col-stt{min-width:calc(54px * var(--penalty-ui-scale));width:calc(54px * var(--penalty-ui-scale));}
+    .penalty-col-name{min-width:calc(170px * var(--penalty-ui-scale));width:calc(170px * var(--penalty-ui-scale));}
+    .penalty-col-address{min-width:calc(170px * var(--penalty-ui-scale));width:calc(170px * var(--penalty-ui-scale));}
+    .penalty-col-object{min-width:calc(86px * var(--penalty-ui-scale));width:calc(86px * var(--penalty-ui-scale));}
     .penalty-panel-head{
       display:flex;
       justify-content:space-between;
@@ -522,6 +523,28 @@
       font-size:13px;
       text-align:right;
     }
+
+    .penalty-report-filter-bar{
+      display:grid;
+      grid-template-columns:minmax(180px,220px) minmax(150px,1fr) minmax(150px,1fr) auto auto;
+      gap:10px;
+      align-items:end;
+      margin-bottom:16px;
+    }
+    .penalty-report-filter-bar > div{
+      min-width:0;
+    }
+    .penalty-report-filter-bar label{
+      margin:0 0 6px;
+      white-space:nowrap;
+    }
+    .penalty-report-filter-actions{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      justify-content:flex-start;
+      flex-wrap:wrap;
+    }
     #penaltyUnitLabel{
       font-size:18px;
       font-weight:700;
@@ -564,14 +587,14 @@
       margin-top:12px;
       flex-wrap:wrap;
     }
-    .penalty-col-doc{min-width:84px;width:84px;}
-    .penalty-col-date{min-width:102px;width:102px;}
-    .penalty-col-rule{min-width:72px;width:72px;}
-    .penalty-col-decree{min-width:96px;width:96px;}
-    .penalty-col-amount{min-width:118px;width:118px;}
-    .penalty-col-authority{min-width:108px;width:108px;}
-    .penalty-col-unit{min-width:112px;width:112px;}
-    .penalty-col-officer{min-width:128px;width:128px;}
+    .penalty-col-doc{min-width:calc(84px * var(--penalty-ui-scale));width:calc(84px * var(--penalty-ui-scale));}
+    .penalty-col-date{min-width:calc(102px * var(--penalty-ui-scale));width:calc(102px * var(--penalty-ui-scale));}
+    .penalty-col-rule{min-width:calc(72px * var(--penalty-ui-scale));width:calc(72px * var(--penalty-ui-scale));}
+    .penalty-col-decree{min-width:calc(96px * var(--penalty-ui-scale));width:calc(96px * var(--penalty-ui-scale));}
+    .penalty-col-amount{min-width:calc(118px * var(--penalty-ui-scale));width:calc(118px * var(--penalty-ui-scale));}
+    .penalty-col-authority{min-width:calc(108px * var(--penalty-ui-scale));width:calc(108px * var(--penalty-ui-scale));}
+    .penalty-col-unit{min-width:calc(112px * var(--penalty-ui-scale));width:calc(112px * var(--penalty-ui-scale));}
+    .penalty-col-officer{min-width:calc(128px * var(--penalty-ui-scale));width:calc(128px * var(--penalty-ui-scale));}
     label{
       display:block;
       font-weight:700;
@@ -1304,7 +1327,20 @@
       .topbar{margin-left:16px;margin-right:16px;}
       .penalty-modal-grid{grid-template-columns:1fr;}
       .penalty-violation-grid{grid-template-columns:1fr;}
+      .penalty-report-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .penalty-report-filter-actions{grid-column:1 / -1;}
     }
+    body.penalty-compact-view .penalty-panel-head-actions button{
+      padding:9px 12px;
+      font-size:14px;
+    }
+    body.penalty-compact-view .panel-box{
+      padding:12px;
+    }
+    body.penalty-compact-view .penalty-panel-title h3{
+      font-size:22px;
+    }
+
     @media (max-width: 900px){
       .penalty-panel-head{align-items:stretch;}
       .penalty-panel-head-actions{justify-content:flex-start;}
@@ -1314,6 +1350,7 @@
     }
     @media (max-width: 640px){
       .summary-grid{grid-template-columns:1fr}
+      .penalty-report-filter-bar{grid-template-columns:1fr;}
       .topbar{flex-direction:column;align-items:flex-start}
       .topbar h1{font-size:22px}
       .top-unit .line1{font-size:24px}
@@ -2119,6 +2156,29 @@
 <div class="muted small" id="penaltyReportModalSub">Tổng hợp dữ liệu của danh sách đang hiển thị.</div>
 </div>
 <div class="modal-body">
+<div class="penalty-report-filter-bar">
+<div>
+<label for="penaltyReportDateField">Lọc theo thời gian</label>
+<select id="penaltyReportDateField">
+<option value="bbDate">Ngày BB VPHC</option>
+<option value="qdDate">Ngày QĐ XPVPHC</option>
+</select>
+</div>
+<div>
+<label for="penaltyReportDateFrom">Từ ngày</label>
+<input id="penaltyReportDateFrom" type="date"/>
+</div>
+<div>
+<label for="penaltyReportDateTo">Đến ngày</label>
+<input id="penaltyReportDateTo" type="date"/>
+</div>
+<div class="penalty-report-filter-actions">
+<button id="btnPenaltyReportApply" type="button">Lọc</button>
+</div>
+<div class="penalty-report-filter-actions">
+<button class="secondary" id="btnPenaltyReportReset" type="button">Xóa lọc</button>
+</div>
+</div>
 <div class="penalty-report-summary-grid">
 <div class="summary-box report-highlight">
 <div class="label">Tổng số cơ sở bị xử phạt</div>
@@ -4674,6 +4734,21 @@
     if (row2Height) wrap.style.setProperty('--penalty-head-row2-height', row2Height + 'px');
   }
 
+  function updatePenaltyResponsiveScale() {
+    const wrap = document.querySelector('.penalty-table-wrap');
+    const table = wrap ? wrap.querySelector('.penalty-table') : null;
+    if (!wrap || !table || !table.offsetParent) return;
+    wrap.style.setProperty('--penalty-ui-scale', '1');
+    const availableWidth = Math.max(320, Math.floor(wrap.clientWidth || wrap.getBoundingClientRect().width || 0));
+    const naturalWidth = Math.max(Math.ceil(table.scrollWidth || 0), 1);
+    let scale = availableWidth / naturalWidth;
+    if (!Number.isFinite(scale)) scale = 1;
+    scale = Math.min(1, Math.max(0.45, scale));
+    wrap.style.setProperty('--penalty-ui-scale', String(scale));
+    document.body.classList.toggle('penalty-compact-view', scale < 0.999);
+    window.requestAnimationFrame(() => updatePenaltyTableStickyOffsets());
+  }
+
   function renderPenaltyTable() {
     const body = $('penaltyTableBody');
     if (!body) return;
@@ -4692,12 +4767,12 @@
         ? 'Chưa có dữ liệu xử phạt tổng hợp từ các đội.'
         : `Chưa có dữ liệu xử phạt của ${escapeHtml(unitName || 'đơn vị')}.`;
       body.innerHTML = `<tr><td colspan="${totalColumns}"><div class="empty-state">${emptyLabel}</div></td></tr>`;
-      updatePenaltyTableStickyOffsets();
+      updatePenaltyResponsiveScale();
       return;
     }
     if (!filteredRows.length) {
       body.innerHTML = `<tr><td colspan="${totalColumns}"><div class="empty-state">Không có dữ liệu phù hợp với điều kiện lọc hiện tại.</div></td></tr>`;
-      updatePenaltyTableStickyOffsets();
+      updatePenaltyResponsiveScale();
       return;
     }
     const filters = getPenaltyFilterState();
@@ -4739,7 +4814,7 @@
         </tr>`;
       }).join('');
     }).join('');
-    updatePenaltyTableStickyOffsets();
+    updatePenaltyResponsiveScale();
   }
 
   function getPenaltyExportHeaders(unitName = state.currentPenaltyUnit) {
@@ -4895,21 +4970,64 @@
     }
   }
 
-  function openPenaltyReportModal(options = {}) {
-    syncAppHistory(options.historyMode || 'push', 'penaltyReportModal');
-    const rows = getPenaltyVisibleRows();
+  function getPenaltyReportFilterState() {
+    return {
+      dateField: String($('penaltyReportDateField')?.value || 'bbDate').trim() || 'bbDate',
+      from: toInputDateValue($('penaltyReportDateFrom')?.value || ''),
+      to: toInputDateValue($('penaltyReportDateTo')?.value || '')
+    };
+  }
+
+  function getPenaltyReportDateLabel(dateField) {
+    return String(dateField || '').trim() === 'qdDate' ? 'Ngày QĐ XPVPHC' : 'Ngày BB VPHC';
+  }
+
+  function filterPenaltyRowsByReportDate(rows = [], reportFilters = getPenaltyReportFilterState()) {
+    const field = String(reportFilters?.dateField || 'bbDate').trim() || 'bbDate';
+    const from = toInputDateValue(reportFilters?.from || '');
+    const to = toInputDateValue(reportFilters?.to || '');
+    if (!from && !to) return Array.isArray(rows) ? [...rows] : [];
+    return (Array.isArray(rows) ? rows : []).filter(item => {
+      const recordDate = toInputDateValue(item?.[field] || '');
+      if (!recordDate) return false;
+      if (from && recordDate < from) return false;
+      if (to && recordDate > to) return false;
+      return true;
+    });
+  }
+
+  function getPenaltyReportDateRangeText(reportFilters = getPenaltyReportFilterState()) {
+    const fieldLabel = getPenaltyReportDateLabel(reportFilters?.dateField);
+    const from = toInputDateValue(reportFilters?.from || '');
+    const to = toInputDateValue(reportFilters?.to || '');
+    if (from && to) return `${fieldLabel} từ ${formatDate(from)} đến ${formatDate(to)}`;
+    if (from) return `${fieldLabel} từ ${formatDate(from)} trở đi`;
+    if (to) return `${fieldLabel} đến ${formatDate(to)}`;
+    return '';
+  }
+
+  function renderPenaltyReportModalContent() {
+    const baseRows = getPenaltyVisibleRows();
     const filters = getPenaltyFilterState();
+    const reportFilters = getPenaltyReportFilterState();
+    const rows = filterPenaltyRowsByReportDate(baseRows, reportFilters);
     const violationRows = rows.flatMap(item => getPenaltyFilteredViolations(item, filters));
     const total = rows.length;
     const violationTotal = violationRows.length || 0;
     const unitName = String(state.currentPenaltyUnit || '').trim() || 'Đơn vị';
     const totalFine = violationRows.reduce((sum, item) => sum + getPenaltyViolationMoneyNumber(item), 0);
+    const dateRangeText = getPenaltyReportDateRangeText(reportFilters);
     if ($('penaltyReportTotalFacilities')) $('penaltyReportTotalFacilities').textContent = String(total);
     if ($('penaltyReportTotalFine')) $('penaltyReportTotalFine').textContent = formatPenaltyCurrency(totalFine);
-    if ($('penaltyReportModalSub')) $('penaltyReportModalSub').textContent = `Tổng hợp dữ liệu của danh sách đang hiển thị - ${unitName}.`;
-    if ($('penaltyReportNote')) $('penaltyReportNote').textContent = total ? `Đang thống kê ${total} hồ sơ và ${violationTotal} hành vi theo bộ lọc hiện tại.` : 'Chưa có dữ liệu phù hợp để thống kê.';
+    if ($('penaltyReportModalSub')) $('penaltyReportModalSub').textContent = dateRangeText
+      ? `Tổng hợp dữ liệu của danh sách đang hiển thị - ${unitName} - ${dateRangeText}.`
+      : `Tổng hợp dữ liệu của danh sách đang hiển thị - ${unitName}.`;
+    if ($('penaltyReportNote')) $('penaltyReportNote').textContent = total
+      ? (dateRangeText
+          ? `Đang thống kê ${total} hồ sơ và ${violationTotal} hành vi theo bộ lọc hiện tại, đồng thời giới hạn theo ${dateRangeText.toLowerCase()}.`
+          : `Đang thống kê ${total} hồ sơ và ${violationTotal} hành vi theo bộ lọc hiện tại.`)
+      : 'Chưa có dữ liệu phù hợp để thống kê.';
     renderReportRows('penaltyReportObjectBody', buildCountRows(rows, item => item.violationObject || 'Chưa nhập đối tượng'), total, 'Chưa có dữ liệu theo đối tượng.');
-    renderReportRows('penaltyReportAddressBody', buildCountRows(rows, item => item.address || 'Chưa nhập địa bàn'), total, 'Chưa có dữ liệu theo địa bàn.');
     renderReportRows('penaltyReportArticleBody', buildCountRows(violationRows, item => item.article || 'Chưa nhập điều'), violationTotal, 'Chưa có dữ liệu theo điều.');
     renderReportRows('penaltyReportAuthorityBody', buildCountRows(violationRows, item => item.authority || 'Chưa nhập thẩm quyền'), violationTotal, 'Chưa có dữ liệu theo thẩm quyền.');
     const showPc07 = isPenaltyPc07View(unitName);
@@ -4920,6 +5038,19 @@
       total,
       showPc07 ? 'Chưa có dữ liệu theo đơn vị.' : 'Chưa có dữ liệu theo cán bộ.'
     );
+  }
+
+  function resetPenaltyReportFilters(options = {}) {
+    if ($('penaltyReportDateField')) $('penaltyReportDateField').value = 'bbDate';
+    if ($('penaltyReportDateFrom')) $('penaltyReportDateFrom').value = '';
+    if ($('penaltyReportDateTo')) $('penaltyReportDateTo').value = '';
+    if (!options.skipRender) renderPenaltyReportModalContent();
+  }
+
+  function openPenaltyReportModal(options = {}) {
+    syncAppHistory(options.historyMode || 'push', 'penaltyReportModal');
+    if (!options.keepFilters) resetPenaltyReportFilters({ skipRender: true });
+    renderPenaltyReportModalContent();
     if ($('penaltyReportModal')) $('penaltyReportModal').classList.remove('hidden');
   }
 
@@ -9797,6 +9928,11 @@ th{font-weight:700;background:#f1f1f1}
   });
   if ($('btnPenaltyReport')) $('btnPenaltyReport').addEventListener('click', openPenaltyReportModal);
   if ($('btnPenaltyReportClose')) $('btnPenaltyReportClose').addEventListener('click', () => goAppBack(closePenaltyReportModal));
+  if ($('btnPenaltyReportApply')) $('btnPenaltyReportApply').addEventListener('click', () => renderPenaltyReportModalContent());
+  if ($('btnPenaltyReportReset')) $('btnPenaltyReportReset').addEventListener('click', () => resetPenaltyReportFilters());
+  if ($('penaltyReportDateField')) $('penaltyReportDateField').addEventListener('change', () => renderPenaltyReportModalContent());
+  if ($('penaltyReportDateFrom')) $('penaltyReportDateFrom').addEventListener('change', () => renderPenaltyReportModalContent());
+  if ($('penaltyReportDateTo')) $('penaltyReportDateTo').addEventListener('change', () => renderPenaltyReportModalContent());
   if ($('penaltyReportModal')) $('penaltyReportModal').addEventListener('click', (event) => {
     if (event.target === $('penaltyReportModal')) closePenaltyReportModal();
   });
@@ -10102,9 +10238,9 @@ th{font-weight:700;background:#f1f1f1}
 
   window.addEventListener('resize', () => {
     adjustFacilityTableLayout();
-    updatePenaltyTableStickyOffsets();
+    updatePenaltyResponsiveScale();
   });
-  window.setTimeout(updatePenaltyTableStickyOffsets, 0);
+  window.setTimeout(updatePenaltyResponsiveScale, 0);
 })();
 </script>
 </body>
